@@ -1,0 +1,3 @@
+[submodule "habitat-challenge"]
+	path = habitat-challenge
+	url = git@github.com:facebookresearch/habitat-challenge.git
