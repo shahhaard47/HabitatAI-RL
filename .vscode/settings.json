@@ -1,0 +1,6 @@
+{
+    "python.pythonPath": "/opt/miniconda3/envs/habitat/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": false
+}

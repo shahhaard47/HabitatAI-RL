@@ -268,7 +268,7 @@ class HabitatRLEvalRunner(BaseHabitatRLRunner):
                         output_width=max(width, 320),
                         output_height=max(height, 320),
                         order=im_inds,
-                        fancy_text=True,
+                        fancy_text=False,
                     )
                     video_frames.append(subplot_image)
 

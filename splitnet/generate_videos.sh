@@ -4,7 +4,7 @@
 # This source code is licensed under the Creative Commons license found in the
 # LICENSE file in the root directory of this source tree.
 
-DATASET="mp3d"
+DATASET="gibson"
 TASK="pointnav"
 
 export GLOG_minloglevel=2
@@ -14,7 +14,8 @@ export MKL_NUM_THREADS=4
 export VECLIB_MAXIMUM_THREADS=4
 export NUMEXPR_NUM_THREADS=4
 
-LOG_LOCATION="output_files/"${TASK}"/"${DATASET}"/pretrain_supervised_rl"
+# LOG_LOCATION="output_files/"${TASK}"/"${DATASET}"/pretrain_supervised_rl"
+LOG_LOCATION="output_files/"${TASK}"/"${DATASET}"/splitnet_pretrain_supervised_rl"
 
 python eval_splitnet.py \
     --record-video \
