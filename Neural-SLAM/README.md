@@ -107,11 +107,11 @@ For visualizing the agent observations and predicted map and pose, add `-v 1` as
 For more detailed instructions, see [INSTRUCTIONS](./docs/INSTRUCTIONS.md).
 
 ### Training nslam_module on the new Habitat version
-Change the paths to the dataset in the DATA_PATH and SCENES_DIR variables in habitat-challenge/configs/train_pose_estimation.local.rgbd.yaml
+Change the paths to the dataset in the DATA_PATH and SCENES_DIR variables in habitat-submission/configs/train_pose_estimation.local.rgbd.yaml
 
 Run the command: 
 ```
-python pose_estimation.py --split train_small --eval 1 --train_global 0 --train_local 0 --train_slam 0 --load_global pretrained_models/model_best.global --load_local pretrained_models/model_best.local --load_slam pretrained_models/model_best.slam --num_processes 1 --task_config <path to habitat-submission/habitat-challenge/configs/train_pose_estimation.local.rgbd.yaml>
+python pose_estimation.py --split train_small --eval 1 --train_global 0 --train_local 0 --train_slam 0 --load_global pretrained_models/model_best.global --load_local pretrained_models/model_best.local --load_slam pretrained_models/model_best.slam --num_processes 1 --task_config <path to habitat-submission/configs/train_pose_estimation.local.rgbd.yaml>
 ```
 
 
