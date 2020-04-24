@@ -6,9 +6,9 @@ import torch
 from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
-from .exploration_env import Exploration_Env
-from .habitat_api.habitat.core.vector_env import VectorEnv
-from .habitat_api.habitat_baselines.config.default import get_config as cfg_baseline
+from .pointnav_env import PointNavEnv
+from habitat import VectorEnv
+from habitat import get_config as cfg_baseline
 
 
 def make_env_fn(args, config_env, config_baseline, rank):
@@ -17,11 +17,7 @@ def make_env_fn(args, config_env, config_baseline, rank):
     config_env.SIMULATOR.SCENE = dataset.episodes[0].scene_id
     print("Loading {}".format(config_env.SIMULATOR.SCENE))
     config_env.freeze()
-
-    env = Exploration_Env(args=args, rank=rank,
-                          config_env=config_env, config_baseline=config_baseline, dataset=dataset
-                          )
-
+    env = PointNavEnv(args=args, rank=rank, config_env=config_env, config_baseline=config_baseline, dataset=dataset)
     env.seed(rank)
     return env
 
@@ -31,12 +27,14 @@ def construct_envs(args):
     baseline_configs = []
     args_list = []
 
+    # TODO check params consistency here
     basic_config = cfg_env(config_paths=
-                           ["env/habitat/habitat_api/configs/" + args.task_config])
+                           [args.task_config])
     basic_config.defrost()
     basic_config.DATASET.SPLIT = args.split
     basic_config.freeze()
 
+    print("loading scenes ...")
     scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
 
     if len(scenes) > 0:
@@ -44,11 +42,13 @@ def construct_envs(args):
             "reduce the number of processes as there "
             "aren't enough number of scenes"
         )
-        scene_split_size = int(np.floor(len(scenes) / args.num_processes))
+        scene_split_size = int(np.floor(len(scenes)/args.num_processes))
+
+    print("using ", args.num_processes, " processes and ", scene_split_size, " scenes per process")
 
     for i in range(args.num_processes):
         config_env = cfg_env(config_paths=
-                             ["env/habitat/habitat_api/configs/" + args.task_config])
+                             [args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:
@@ -61,6 +61,7 @@ def construct_envs(args):
         else:
             gpu_id = int((i - args.num_processes_on_first_gpu)
                          // args.num_processes_per_gpu) + args.sim_gpu_id
+        print("i have ", torch.cuda.device_count(), " gpus")
         gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
@@ -93,6 +94,7 @@ def construct_envs(args):
         baseline_configs.append(config_baseline)
 
         args_list.append(args)
+        print("process ", i,  " configured with ", args)
 
     envs = VectorEnv(
         make_env_fn=make_env_fn,
@@ -103,5 +105,6 @@ def construct_envs(args):
             )
         ),
     )
+    print("returning with ", envs.num_envs(), " environments ")
 
     return envs

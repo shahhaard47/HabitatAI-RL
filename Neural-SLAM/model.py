@@ -206,6 +206,7 @@ class Neural_SLAM_Module(nn.Module):
             st_poses[:, 0] = poses[:, 1] * 200. / self.resolution / grid_size
             st_poses[:, 1] = poses[:, 0] * 200. / self.resolution / grid_size
             st_poses[:, 2] = poses[:, 2] * 57.29577951308232
+            # 57.29577951308232 is 180/PI
             rot_mat, trans_mat = get_grid(st_poses,
                                           (bs, 2, grid_size, grid_size),
                                           self.device)
@@ -260,6 +261,7 @@ class Neural_SLAM_Module(nn.Module):
                 corrected_pose = poses + pose_pred
 
                 def get_new_pose_batch(pose, rel_pose_change):
+                    # 57.29577951308232 is 180/PI
                     pose[:, 1] += rel_pose_change[:, 0] * \
                                   torch.sin(pose[:, 2] / 57.29577951308232) \
                                   + rel_pose_change[:, 1] * \
@@ -272,7 +274,6 @@ class Neural_SLAM_Module(nn.Module):
 
                     pose[:, 2] = torch.fmod(pose[:, 2] - 180.0, 360.0) + 180.0
                     pose[:, 2] = torch.fmod(pose[:, 2] + 180.0, 360.0) - 180.0
-
                     return pose
 
                 current_poses = get_new_pose_batch(current_poses,

@@ -2,11 +2,11 @@ import torch
 
 from .habitat import construct_envs
 
-
 def make_vec_envs(args):
-    envs = construct_envs(args)
-    envs = VecPyTorch(envs, args.device)
-    return envs
+    env = construct_envs(args)
+    env = VecPyTorch(env, args.device)
+    print("returning torch envs")
+    return env
 
 
 # Adapted from https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/envs.py#L159
