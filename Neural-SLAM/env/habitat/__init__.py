@@ -61,7 +61,6 @@ def construct_envs(args):
         else:
             gpu_id = int((i - args.num_processes_on_first_gpu)
                          // args.num_processes_per_gpu) + args.sim_gpu_id
-        print("i have ", torch.cuda.device_count(), " gpus")
         gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
@@ -73,7 +72,7 @@ def construct_envs(args):
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = False
-
+        # TODO: change these to use habitat's config, retaining to preserve smaller frame size (speed) and height, nosie (perf)
         config_env.SIMULATOR.RGB_SENSOR.WIDTH = args.env_frame_width
         config_env.SIMULATOR.RGB_SENSOR.HEIGHT = args.env_frame_height
         config_env.SIMULATOR.RGB_SENSOR.HFOV = args.hfov
@@ -94,17 +93,8 @@ def construct_envs(args):
         baseline_configs.append(config_baseline)
 
         args_list.append(args)
-        print("process ", i,  " configured with ", args)
 
-    envs = VectorEnv(
-        make_env_fn=make_env_fn,
-        env_fn_args=tuple(
-            tuple(
-                zip(args_list, env_configs, baseline_configs,
-                    range(args.num_processes))
-            )
-        ),
-    )
-    print("returning with ", envs.num_envs(), " environments ")
+    envs = make_env_fn(args_list[0], env_configs[0], config_baseline=baseline_configs[0], rank=42)
+    print("returning with environment")
 
     return envs
