@@ -1,3 +1,6 @@
 [submodule "habitat-challenge"]
 	path = habitat-challenge
-	url = https://github.com/facebookresearch/habitat-challenge.git
+	url = git@github.com:facebookresearch/habitat-challenge.git
+[submodule "Neural-SLAM/env/habitat/habitat-api"]
+	path = Neural-SLAM/env/habitat/habitat-api
+	url = https://github.com/facebookresearch/habitat-api.git

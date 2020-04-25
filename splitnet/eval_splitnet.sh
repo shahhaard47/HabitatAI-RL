@@ -4,7 +4,6 @@
 # This source code is licensed under the Creative Commons license found in the
 # LICENSE file in the root directory of this source tree.
 
-# DATASET="mp3d"
 DATASET="gibson"
 TASK="pointnav"
 
