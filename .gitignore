@@ -1,4 +1,8 @@
 habitat-challenge/habitat-challenge-data/data
 splitnet/data
 splitnet/downloaded_data
-
+Icon?
+__pycache__
+data/
+pretrained_models/
+tmp/
