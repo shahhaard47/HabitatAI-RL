@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from .habitat import construct_envs
 
@@ -14,7 +15,7 @@ class VecPyTorch():
 
     def __init__(self, venv, device):
         self.venv = venv
-        # self.num_envs = venv.num_envs
+        self.num_envs = venv.num_envs
         self.observation_space = venv.observation_space
         self.action_space = venv.action_space
         self.device = device
