@@ -64,23 +64,19 @@ def get_local_map_boundaries(agent_loc, local_sizes, full_sizes):
 
 # should return num_envs * 3 np array
 def get_delta_pose(current_pose, action):
-    dx = np.zeros(action.shape)
-    dy = np.zeros(action.shape)
-    do = np.zeros(action.shape)
-    for episode in range(0, len(current_pose)):
-        if action[episode] == HabitatSimActions.MOVE_FORWARD:
-            dx = 0.25*np.cos(current_pose[episode, 2])
-            dy = 0.25*np.sin(current_pose[episode, 2])
-        elif action == HabitatSimActions.TURN_LEFT:
-            do = -np.deg2rad(10)*np.ones()
-        elif action == HabitatSimActions.TURN_RIGHT:
-            do = np.deg2rad(10)
-    return [dx, dy, do]
-
+    dpose = np.zeros(current_pose.shape)
+    if action == HabitatSimActions.MOVE_FORWARD:
+        dpose[0] = 0.25*np.cos(current_pose[2])
+        dpose[1] = 0.25*np.sin(current_pose[2])
+    elif action == HabitatSimActions.TURN_LEFT:
+        dpose[2] = -np.deg2rad(30)
+    elif action == HabitatSimActions.TURN_RIGHT:
+        dpose[2] = np.deg2rad(30)
+    return dpose
 
 
 def main():
-    # Setup Logging
+
     log_dir = "{}/models/{}/".format(args.dump_location, args.exp_name)
     dump_dir = "{}/dump/{}/".format(args.dump_location, args.exp_name)
 
@@ -94,86 +90,79 @@ def main():
         filename=log_dir + 'train.log',
         level=logging.INFO)
     print("Dumping at {}".format(log_dir))
-    print(args)
+    print("Arguments starting with ", args)
     logging.info(args)
+
+    device = args.device = torch.device("cuda:0" if args.cuda else "cpu")
 
     # Logging and loss variables
     num_scenes = args.num_processes
     num_episodes = int(args.num_episodes)
-    device = args.device = torch.device("cuda:0" if args.cuda else "cpu")
+    print("using ", num_scenes, " scenes and ",num_episodes, " episodes")
 
+
+    # setting up rewards and losses
     policy_loss = 0
     best_cost = 100000
     costs = deque(maxlen=1000)
     exp_costs = deque(maxlen=1000)
     pose_costs = deque(maxlen=1000)
-
     g_masks = torch.ones(num_scenes).float().to(device)
     l_masks = torch.zeros(num_scenes).float().to(device)
-
     best_local_loss = np.inf
     best_g_reward = -np.inf
-
     if args.eval:
         traj_lengths = args.max_episode_length // args.num_local_steps
         explored_area_log = np.zeros((num_scenes, num_episodes, traj_lengths))
         explored_ratio_log = np.zeros((num_scenes, num_episodes, traj_lengths))
-
     g_episode_rewards = deque(maxlen=1000)
-
     l_action_losses = deque(maxlen=1000)
-
     g_value_losses = deque(maxlen=1000)
     g_action_losses = deque(maxlen=1000)
     g_dist_entropies = deque(maxlen=1000)
-
     per_step_g_rewards = deque(maxlen=1000)
-
     g_process_rewards = np.zeros((num_scenes))
-
     print("Setup rewards")
-    print("starting envrionments ...")
 
+
+    print("starting envrionments ...")
     # Starting environments
     torch.set_num_threads(1)
     envs = make_vec_envs(args)
     obs, infos = envs.reset()
-
+    print(obs)
+    print(infos)
     print("environments reset")
+
+    
     # Initialize map variables
     ### Full map consists of 4 channels containing the following:
     ### 1. Obstacle Map
     ### 2. Exploread Area
     ### 3. Current Agent Location
     ### 4. Past Agent Locations
-
-    torch.set_grad_enabled(False)
-
     print("creating maps and poses ")
+    torch.set_grad_enabled(False)
     # Calculating full and local map sizes
     map_size = args.map_size_cm // args.map_resolution
     full_w, full_h = map_size, map_size
     local_w, local_h = int(full_w / args.global_downscaling), \
                        int(full_h / args.global_downscaling)
-
     # Initializing full and local map
     full_map = torch.zeros(num_scenes, 4, full_w, full_h).float().to(device)
     local_map = torch.zeros(num_scenes, 4, local_w, local_h).float().to(device)
-
     # Initial full and local pose
     full_pose = torch.zeros(num_scenes, 3).float().to(device)
     local_pose = torch.zeros(num_scenes, 3).float().to(device)
-
     # Origin of local map
     origins = np.zeros((num_scenes, 3))
-
     # Local Map Boundaries
     lmb = np.zeros((num_scenes, 4)).astype(int)
-
     ### Planner pose inputs has 7 dimensions
     ### 1-3 store continuous global agent location
     ### 4-7 store local map boundaries
     planner_pose_inputs = np.zeros((num_scenes, 7))
+
 
     def init_map_and_pose():
         full_map.fill_(0.)
@@ -196,40 +185,35 @@ def main():
             planner_pose_inputs[e, 3:] = lmb[e]
             origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
                           lmb[e][0] * args.map_resolution / 100.0, 0.]
-
         for e in range(num_scenes):
             local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
             local_pose[e] = full_pose[e] - \
                             torch.from_numpy(origins[e]).to(device).float()
-
     init_map_and_pose()
+    print("maps and poses intialized")
+
+
+    print("defining action and observation spaces")
     # Global policy observation space
     g_observation_space = gym.spaces.Box(0, 1,
-                                         (8,
-                                          local_w,
-                                          local_h), dtype='uint8')
-
+                                         (8, local_w, local_h), dtype='uint8')
     # Global policy action space
     g_action_space = gym.spaces.Box(low=0.0, high=1.0,
                                     shape=(2,), dtype=np.float32)
-
     # Local policy observation space
     l_observation_space = gym.spaces.Box(0, 255,
-                                         (3,
-                                          args.frame_width,
-                                          args.frame_width), dtype='uint8')
+                                         (3, args.frame_width, args.frame_width), dtype='uint8')
 
-    # Local and Global policy recurrent layer sizes
-    l_hidden_size = args.local_hidden_size
-    g_hidden_size = args.global_hidden_size
 
     print("defining architecture")
+    # Local and Global policy recurrent layer sizes
+    l_hidden_size = args.local_hidden_size
+    g_hidden_size = args.global_hidden_size    
     # slam
     nslam_module = Neural_SLAM_Module(args).to(device)
-    slam_optimizer = get_optimizer(nslam_module.parameters(),
-                                   args.slam_optimizer)
+    slam_optimizer = get_optimizer(nslam_module.parameters(), args.slam_optimizer)
     slam_memory = FIFOMemory(args.slam_memory_size)
-
+    # global
     g_policy = RL_Policy(g_observation_space.shape, g_action_space,
                          base_kwargs={'recurrent': args.use_recurrent_global,
                                       'hidden_size': g_hidden_size,
@@ -239,22 +223,26 @@ def main():
                        args.num_mini_batch, args.value_loss_coef,
                        args.entropy_coef, lr=args.global_lr, eps=args.eps,
                        max_grad_norm=args.max_grad_norm)
-
-    print("this action space has ", envs.action_space.n, " actions")
-    # Local policy
-    l_policy = Local_IL_Policy(l_observation_space.shape, envs.action_space.n,
-                               recurrent=args.use_recurrent_local,
-                               hidden_size=l_hidden_size,
-                               deterministic=args.use_deterministic_local).to(device)
-    local_optimizer = get_optimizer(l_policy.parameters(),
-                                    args.local_optimizer)
     # Storage
     g_rollouts = GlobalRolloutStorage(args.num_global_steps,
                                       num_scenes, g_observation_space.shape,
                                       g_action_space, g_policy.rec_state_size,
                                       1).to(device)
+    # Local policy
+    l_policy = Local_IL_Policy(l_observation_space.shape, envs.action_space.n,
+                               recurrent=args.use_recurrent_local,
+                               hidden_size=l_hidden_size,
+                               deterministic=args.use_deterministic_local).to(device)
+    local_optimizer = get_optimizer(l_policy.parameters(), args.local_optimizer)
+
 
     print("loading model weights")
+    # Loading model
+    if args.load_slam != "0":
+        print("Loading slam {}".format(args.load_slam))
+        state_dict = torch.load(args.load_slam,
+                                map_location=lambda storage, loc: storage)
+        nslam_module.load_state_dict(state_dict)
     if not args.train_slam:
         nslam_module.eval()
 
@@ -263,46 +251,34 @@ def main():
         state_dict = torch.load(args.load_global,
                                 map_location=lambda storage, loc: storage)
         g_policy.load_state_dict(state_dict)
-
     if not args.train_global:
         g_policy.eval()
 
-    if args.load_local != "0":
-        print("Loading local {}".format(args.load_local))
-        state_dict = torch.load(args.load_local,
-                                map_location=lambda storage, loc: storage)
-        l_policy.load_state_dict(state_dict)
-
+    # if args.load_local != "0":
+    #     print("Loading local {}".format(args.load_local))
+    #     state_dict = torch.load(args.load_local,
+    #                             map_location=lambda storage, loc: storage)
+    #     l_policy.load_state_dict(state_dict)
     if not args.train_local:
         l_policy.eval()
 
-    # Loading model
-    if args.load_slam != "0":
-        print("Loading slam {}".format(args.load_slam))
-        state_dict = torch.load(args.load_slam,
-                                map_location=lambda storage, loc: storage)
-        nslam_module.load_state_dict(state_dict)
-
-    if not args.train_slam:
-        nslam_module.eval()
 
     print("predicting first pose and initializing maps")
-    # Predict map from frame 1:
-    delta_poses = torch.from_numpy(np.asarray(
-        [get_delta_pose(local_pose, HabitatSimActions.STOP) for env_idx
-         in range(num_scenes)])
-    ).float().to(device)
+    # Predict map and pose from frame 1:
+    delta_poses = torch.from_numpy(np.zeros(local_pose.shape)).float().to(device)
 
     _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
         nslam_module(obs, obs, delta_poses, local_map[:, 0, :, :],
                      local_map[:, 1, :, :], local_pose)
-
     print("slam module returned pose and maps")
-    # Compute Global policy input
+
+
+    # Compute Global policy input - 8 maps 4 local map, 4 donwsampled global maps
     local_pose_np = local_pose.cpu().numpy()
     global_input = torch.zeros(num_scenes, 8, local_w, local_h)
     global_orientation = torch.zeros(num_scenes, 1).long()
 
+    # inputs to global policy for each scene
     for e in range(num_scenes):
         r, c = local_pose_np[e, 1], local_pose_np[e, 0]
         loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
@@ -311,10 +287,8 @@ def main():
         local_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
         global_orientation[e] = int((local_pose_np[e, 2] + 180.0) / 5.)
         # doubt: why is 180 degrees being added here?
-
     global_input[:, 0:4, :, :] = local_map.detach()
     global_input[:, 4:, :, :] = nn.MaxPool2d(args.global_downscaling)(full_map)
-
     g_rollouts.obs[0].copy_(global_input)
     g_rollouts.extras[0].copy_(global_orientation)
 
@@ -327,6 +301,9 @@ def main():
             extras=g_rollouts.extras[0],
             deterministic=False
         )
+    print("global policy op")
+    print(g_value, g_action, g_action_log_prob, g_rec_states)
+
 
     cpu_actions = nn.Sigmoid()(g_action).cpu().numpy()
     global_goals = [[int(action[0] * local_w), int(action[1] * local_h)]
@@ -404,7 +381,7 @@ def main():
 
             # ------------------------------------------------------------------
             # Neural SLAM Module
-            delta_poses_np = get_delta_pose(local_pose[env_idx], l_action[env_idx])
+            delta_poses_np = np.zeros(local_pose_np.shape)
             if args.train_slam:
                 # Add frames to memory
                 for env_idx in range(num_scenes):
@@ -425,10 +402,9 @@ def main():
                     slam_memory.push(
                         (last_obs[env_idx].cpu(), env_obs, env_poses),
                         (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
+                    delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
 
-            delta_poses = torch.from_numpy(np.asarray(
-                [delta_poses_np[env_idx]
-                 for env_idx in range(num_scenes)])).float().to(device)
+            delta_poses = torch.from_numpy(delta_poses_np).float().to(device)
 
             _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
                 nslam_module(last_obs, obs, delta_poses, local_map[:, 0, :, :],

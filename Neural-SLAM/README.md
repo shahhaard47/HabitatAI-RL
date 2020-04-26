@@ -72,6 +72,7 @@ Neural-SLAM/
 Please download the data using the instructions here: https://github.com/facebookresearch/habitat-api#data
 
 To verify that dependencies are correctly installed and data is setup correctly, run:
+
 ```
 python main.py -n1 --auto_gpu_config 0 --split val
 ```
@@ -111,7 +112,7 @@ Change the paths to the dataset in the DATA_PATH and SCENES_DIR variables in hab
 
 Run the command: 
 ```
-python pose_estimation.py --split val --eval 1 --train_global 0 --train_local 0 --train_slam 0 --load_global pretrained_models/model_best.global --load_local pretrained_models/model_best.local --load_slam pretrained_models/model_best.slam --num_processes 1 --task_config <path to habitat-submission/configs/train_pose_estimation.local.rgbd.yaml>
+python pose_estimation_pointnav.py --split train_small --train_global 0 --train_local 0 --train_slam 1 --load_global pretrained_models/model_best.global --load_local pretrained_models/model_best.local --load_slam pretrained_models/model_best.slam --num_processes 1 --task_config ../configs/train_pose_estimation.local.rgbd.yaml --exp_name testingNewEnv
 ```
 
 
