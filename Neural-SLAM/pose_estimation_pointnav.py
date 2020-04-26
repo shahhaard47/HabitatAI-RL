@@ -1,8 +1,6 @@
 import time
 from collections import deque
-
 import os
-
 os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 import torch
@@ -19,7 +17,6 @@ from model import RL_Policy, Local_IL_Policy, Neural_SLAM_Module
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
 import algo
-
 import sys
 import matplotlib
 
@@ -79,22 +76,17 @@ def main():
 
     log_dir = "{}/models/{}/".format(args.dump_location, args.exp_name)
     dump_dir = "{}/dump/{}/".format(args.dump_location, args.exp_name)
-
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-
     if not os.path.exists("{}/images/".format(dump_dir)):
         os.makedirs("{}/images/".format(dump_dir))
-
     logging.basicConfig(
         filename=log_dir + 'train.log',
         level=logging.INFO)
     print("Dumping at {}".format(log_dir))
     print("Arguments starting with ", args)
     logging.info(args)
-
     device = args.device = torch.device("cuda:0" if args.cuda else "cpu")
-
     # Logging and loss variables
     num_scenes = args.num_processes
     num_episodes = int(args.num_episodes)
@@ -131,6 +123,7 @@ def main():
     envs = make_vec_envs(args)
     obs, infos = envs.reset()
     print(obs)
+    print(obs.shape)
     print(infos)
     print("environments reset")
 
@@ -206,9 +199,13 @@ def main():
 
 
     print("defining architecture")
+    print("global action space ", g_action_space)
+    print("local action space ", envs.action_space)
+    print("local observation space ", l_observation_space)
+
     # Local and Global policy recurrent layer sizes
     l_hidden_size = args.local_hidden_size
-    g_hidden_size = args.global_hidden_size    
+    g_hidden_size = args.global_hidden_size
     # slam
     nslam_module = Neural_SLAM_Module(args).to(device)
     slam_optimizer = get_optimizer(nslam_module.parameters(), args.slam_optimizer)
@@ -301,8 +298,6 @@ def main():
             extras=g_rollouts.extras[0],
             deterministic=False
         )
-    print("global policy op")
-    print(g_value, g_action, g_action_log_prob, g_rec_states)
 
 
     cpu_actions = nn.Sigmoid()(g_action).cpu().numpy()
