@@ -18,7 +18,10 @@ from utils.optimization import get_optimizer
 from model import RL_Policy, Local_IL_Policy, Neural_SLAM_Module
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
+from ClassicalPathFollower import ShortestPathFollower
+
 import algo
+
 
 import sys
 import matplotlib
@@ -259,8 +262,14 @@ def main():
     #     state_dict = torch.load(args.load_local,
     #                             map_location=lambda storage, loc: storage)
     #     l_policy.load_state_dict(state_dict)
-    if not args.train_local:
-        l_policy.eval()
+    if args.run_classical:
+        # Pass Args: sim: HabitatSim instance.
+        #            goal_radius: Check if there is a standard value used in habitat challenge
+        #            return_one_hot: Set False because we require only the actions
+        classical_policy = ShortestPathFollower()
+    else:
+        if not args.train_local:
+            l_policy.eval()
 
 
     print("predicting first pose and initializing maps")
@@ -354,12 +363,16 @@ def main():
                 local_masks,
                 extras=local_goals,
             )
-
-            if args.train_local:
-                action_target = output[:, -1].long().to(device)
-                policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
-                torch.set_grad_enabled(False)
-            l_action = action.cpu()
+            if args.run_classical:
+                # args: goal_pos  -> np array (Figure out how to get this goal position for the pointnav task)
+                #       local_pos -> np array (Pass the local position of the robot obtained from the )
+                l_action = classical_policy.get_next_action()
+            else:
+                if args.train_local:
+                    action_target = output[:, -1].long().to(device)
+                    policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
+                    torch.set_grad_enabled(False)
+                l_action = action.cpu()
             # ------------------------------------------------------------------
 
             # ------------------------------------------------------------------
