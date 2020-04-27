@@ -72,8 +72,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9d02c7c0-6cd2-4589-bc4b-f7a25a46ef8a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/Neural-SLAM/ClassicalPathFollower.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/env/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Neural-SLAM/env/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/env/habitat/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Neural-SLAM/env/habitat/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/env/habitat/exploration_env.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/env/habitat/habitat-api" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/actuation_noise_fwd.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/actuation_noise_left.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/actuation_noise_right.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/sensor_noise_fwd.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/sensor_noise_left.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neural-SLAM/noise_models/sensor_noise_right.pkl" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Neural-SLAM/pose_estimation_pointnav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Neural-SLAM/pose_estimation_pointnav.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/configs/train_pose_estimation.local.rgbd.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/configs/train_pose_estimation.local.rgbd.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/habitat-challenge" beforeDir="false" afterPath="$PROJECT_DIR$/habitat-challenge" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
