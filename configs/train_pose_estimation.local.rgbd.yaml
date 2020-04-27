@@ -49,5 +49,5 @@ TASK:
 DATASET:
   TYPE: PointNav-v1
   SPLIT: train_small
-  DATA_PATH: "/home/akshay/habitat-submission/habitat-challenge/habitat-challenge-data/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
-  SCENES_DIR: "/home/akshay/habitat-submission/habitat-challenge/habitat-challenge-data/data/scene_datasets"
+  DATA_PATH: "/home/prateek265/Courses/CS7643/DLProject/habitat-submission/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
+  SCENES_DIR: "/home/prateek265/Courses/CS7643/DLProject/habitat-submission/data/scene_datasets/habitat-test-scenes"

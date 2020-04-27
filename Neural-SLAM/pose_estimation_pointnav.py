@@ -16,7 +16,7 @@ from utils.optimization import get_optimizer
 from model import RL_Policy, Local_IL_Policy, Neural_SLAM_Module
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
-from ClassicalPathFollower import ShortestPathFollower
+# from ClassicalPathFollower import ShortestPathFollower
 
 import algo
 
