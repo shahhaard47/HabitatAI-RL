@@ -49,5 +49,5 @@ TASK:
 DATASET:
   TYPE: PointNav-v1
   SPLIT: train_small
-  DATA_PATH: "/home/akshay/habitat-submission/habitat-challenge/habitat-challenge-data/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
-  SCENES_DIR: "/home/akshay/habitat-submission/habitat-challenge/habitat-challenge-data/data/scene_datasets"
+  DATA_PATH: "/content/drive/My Drive/GaTech/Spring20/DL-CS7643/HabitatProj/habitat-submission/Neural-SLAM/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
+  SCENES_DIR: "/content/drive/My Drive/GaTech/Spring20/DL-CS7643/HabitatProj/habitat-submission/Neural-SLAM/data/scene_datasets"
