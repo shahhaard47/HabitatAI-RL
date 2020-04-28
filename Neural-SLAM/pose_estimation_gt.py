@@ -65,7 +65,7 @@ def get_delta_pose(current_pose, action):
     dpose = np.zeros(current_pose.shape)
     if action == HabitatSimActions.MOVE_FORWARD:
         dpose[0] = 0.25*np.cos(np.deg2rad(current_pose[2]))
-        dpose[1] = 0.25*np.sin(np.deg2rad(current_pose[2]))
+        dpose[1] = -0.25*np.sin(np.deg2rad(current_pose[2]))
     elif action == HabitatSimActions.TURN_LEFT:
         dpose[2] = np.deg2rad(10)
     elif action == HabitatSimActions.TURN_RIGHT:

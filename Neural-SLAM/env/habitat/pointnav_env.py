@@ -202,8 +202,8 @@ class PointNavEnv(habitat.RLEnv):
     def get_noiseless_map_dpose(self, current_pose, action):
         dx, dy, do = 0.0, 0.0, 0.0
         if action == HabitatSimActions.MOVE_FORWARD:
-            dx = 0.25*np.cos(np.rad2deg(current_pose[2]))
-            dy = 0.25*np.sin(np.rad2deg(current_pose[2]))
+            dx = 0.25*np.cos(np.deg2rad(current_pose[2]))
+            dy = -0.25*np.sin(np.deg2rad(current_pose[2]))
         elif action == HabitatSimActions.TURN_LEFT:
             do = np.deg2rad(10)
         elif action == HabitatSimActions.TURN_RIGHT:
@@ -468,7 +468,7 @@ class PointNavEnv(habitat.RLEnv):
 
 
         # Get goal
-        goal = inputs['goal']
+        goal = inputs['goal'].cpu()
         goal = pu.threshold_poses(goal, grid.shape)
 
 
