@@ -468,7 +468,7 @@ class PointNavEnv(habitat.RLEnv):
 
 
         # Get goal
-        goal = inputs['goal'].cpu()
+        goal = inputs['goal']
         goal = pu.threshold_poses(goal, grid.shape)
 
 

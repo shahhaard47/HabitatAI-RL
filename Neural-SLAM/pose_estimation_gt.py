@@ -437,7 +437,7 @@ def main():
                 p_input['map_pred'] = local_map[e, 0, :, :].cpu().numpy()
                 p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
                 p_input['pose_pred'] = planner_pose_inputs[e]
-                p_input['goal'] = global_goals[e]
+                p_input['goal'] = global_goals[e].cpu().numpy()
 
             planner_out = envs.get_short_term_goal(planner_inputs)
             # ------------------------------------------------------------------
