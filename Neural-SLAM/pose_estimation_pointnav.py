@@ -90,7 +90,6 @@ def main():
     # Logging and loss variables
     num_scenes = args.num_processes
     num_episodes = int(args.num_episodes)
-    print("using ", num_scenes, " scenes and ",num_episodes, " episodes")
 
 
     # setting up rewards and losses
@@ -99,21 +98,12 @@ def main():
     costs = deque(maxlen=1000)
     exp_costs = deque(maxlen=1000)
     pose_costs = deque(maxlen=1000)
-    g_masks = torch.ones(num_scenes).float().to(device)
     l_masks = torch.zeros(num_scenes).float().to(device)
     best_local_loss = np.inf
     best_g_reward = -np.inf
     if args.eval:
         traj_lengths = args.max_episode_length // args.num_local_steps
-        explored_area_log = np.zeros((num_scenes, num_episodes, traj_lengths))
-        explored_ratio_log = np.zeros((num_scenes, num_episodes, traj_lengths))
-    g_episode_rewards = deque(maxlen=1000)
     l_action_losses = deque(maxlen=1000)
-    g_value_losses = deque(maxlen=1000)
-    g_action_losses = deque(maxlen=1000)
-    g_dist_entropies = deque(maxlen=1000)
-    per_step_g_rewards = deque(maxlen=1000)
-    g_process_rewards = np.zeros((num_scenes))
     print("Setup rewards")
 
 
@@ -122,9 +112,6 @@ def main():
     torch.set_num_threads(1)
     envs = make_vec_envs(args)
     obs, infos = envs.reset()
-    print(obs)
-    print(obs.shape)
-    print(infos)
     print("environments reset")
 
     
@@ -162,10 +149,10 @@ def main():
         full_pose.fill_(0.)
         full_pose[:, :2] = args.map_size_cm / 100.0 / 2.0
 
-        local_pose_np = full_pose.cpu().numpy()
-        planner_pose_inputs[:, :3] = local_pose_np
+        full_pose_np = full_pose.cpu().numpy()
+        planner_pose_inputs[:, :3] = full_pose_np
         for e in range(num_scenes):
-            r, c = local_pose_np[e, 1], local_pose_np[e, 0]
+            r, c = full_pose_np[e, 1], full_pose_np[e, 0]
             loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
                             int(c * 100.0 / args.map_resolution)]
 
@@ -186,26 +173,9 @@ def main():
     print("maps and poses intialized")
 
 
-    print("defining action and observation spaces")
-    # Global policy observation space
-    g_observation_space = gym.spaces.Box(0, 1,
-                                         (8, local_w, local_h), dtype='uint8')
-    # Global policy action space
-    g_action_space = gym.spaces.Box(low=0.0, high=1.0,
-                                    shape=(2,), dtype=np.float32)
-    # Local policy observation space
-    l_observation_space = gym.spaces.Box(0, 255,
-                                         (3, args.frame_width, args.frame_width), dtype='uint8')
-
-
     print("defining architecture")
-    print("global action space ", g_action_space)
-    print("local action space ", envs.action_space)
-    print("local observation space ", l_observation_space)
-
     # Local and Global policy recurrent layer sizes
     l_hidden_size = args.local_hidden_size
-    g_hidden_size = args.global_hidden_size
     # slam
     nslam_module = Neural_SLAM_Module(args).to(device)
     slam_optimizer = get_optimizer(nslam_module.parameters(), args.slam_optimizer)
@@ -316,7 +286,7 @@ def main():
     output = envs.get_short_term_goal(planner_inputs)
 
     last_obs = obs.detach()
-    local_rec_states = torch.zeros(num_scenes, l_hidden_size).to(device)
+    local_rec_states = torch.zeros(num_scenes, args.local_hidden_size).to(device)
     start = time.time()
 
     total_num_steps = -1

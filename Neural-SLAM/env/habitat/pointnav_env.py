@@ -61,7 +61,7 @@ class PointNavEnv(habitat.RLEnv):
         self.num_actions = 4
         self.dt = 10
         self.rank = rank
-        super().__init__(config_env)
+        super().__init__(config_env, dataset)
 
         self.mapper = self.build_mapper()
         self.episode_no = 0
@@ -121,9 +121,9 @@ class PointNavEnv(habitat.RLEnv):
         # Get Ground Truth Map - explorable map for the given map size
         # set explored area to 0
         self.explorable_map = None
+        full_map_size = args.map_size_cm//args.map_resolution       
         while self.explorable_map is None:
             obs = super().reset()
-            full_map_size = args.map_size_cm//args.map_resolution
             self.explorable_map = self._get_gt_map(full_map_size)
         self.prev_explored_area = 0.
 
@@ -151,6 +151,9 @@ class PointNavEnv(habitat.RLEnv):
         # position in simulator coordinates
         self.last_sim_location = self.get_sim_location()
 
+        goal_xy = self.get_goal_in_start_pose()
+        self.goal_rc = [int((self.curr_loc[1] + goal_xy[1])*100/args.map_resolution), 
+                    int((self.curr_loc[0] + goal_xy[0])*100/args.map_resolution)]
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
                           self.curr_loc_gt[1]*100.0,
@@ -179,15 +182,32 @@ class PointNavEnv(habitat.RLEnv):
         self.save_position()
         return state, self.info
 
+
+    def get_gt_map(self):
+        return self.map
+
+    def get_gt_pose(self):
+        return self.curr_loc_gt
+
+    def get_explorable_map(self):
+        return self.explorable_map
+
+    def get_sim_pose(self):
+        # todo change this to pos, rot numpy array
+        return super().habitat_env.sim.get_agent_state(0)
+
+    def get_goal_coords(self):
+        return self.goal_rc
+
     def get_noiseless_map_dpose(self, current_pose, action):
         dx, dy, do = 0.0, 0.0, 0.0
         if action == HabitatSimActions.MOVE_FORWARD:
-            dx = 0.25*np.cos(current_pose[2])
-            dy = 0.25*np.sin(current_pose[2])
+            dx = 0.25*np.cos(np.rad2deg(current_pose[2]))
+            dy = 0.25*np.sin(np.rad2deg(current_pose[2]))
         elif action == HabitatSimActions.TURN_LEFT:
-            do = -np.deg2rad(10)
-        elif action == HabitatSimActions.TURN_RIGHT:
             do = np.deg2rad(10)
+        elif action == HabitatSimActions.TURN_RIGHT:
+            do = -np.deg2rad(10)
         return dx, dy, do
 
     # update the positions, maps, based on action
@@ -215,10 +235,16 @@ class PointNavEnv(habitat.RLEnv):
         # gt pose change from sim
         dx_gt, dy_gt, do_gt = self.get_gt_pose_change()
         dx_base, dy_base, do_base = self.get_noiseless_map_dpose(self.curr_loc, action)
+        print('---------')
+        print("POINTGOAL, rew, done, ", obs['pointgoal'], rew, done)
+        print("DPOSE: GT ", dx_gt, dy_gt, do_gt, " EXPECTED: ", dx_base, dy_base, do_base)
+        print("before stepping POSE: GT ", self.curr_loc_gt, " EST: ", self.curr_loc)        
         self.curr_loc = pu.get_new_pose(self.curr_loc,
                                (dx_base, dy_base, do_base))
         self.curr_loc_gt = pu.get_new_pose(self.curr_loc_gt,
                                (dx_gt, dy_gt, do_gt))
+        print("POSE: GT ", self.curr_loc_gt, " EST: ", self.curr_loc)
+        print('---------')
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
                           self.curr_loc_gt[1]*100.0,
@@ -230,7 +256,7 @@ class PointNavEnv(habitat.RLEnv):
 
         # Update collision map
         # we should use estimated pose for this
-        if action == 1:
+        if action == HabitatSimActions.MOVE_FORWARD:
             x1, y1, t1 = self.last_loc
             x2, y2, t2 = self.curr_loc
             if abs(x1 - x2)< 0.05 and abs(y1 - y2) < 0.05:
@@ -261,7 +287,7 @@ class PointNavEnv(habitat.RLEnv):
         self.info['time'] = self.timestep
         self.info['fp_proj'] = fp_proj
         self.info['fp_explored']= fp_explored
-        self.info['sensor_pose'] = [dx_base, dy_base, do_base]        
+        self.info['sensor_pose'] = [dx_base, dy_base, do_base]
         self.info['pose_err'] = [dx_gt - dx_base,
                                  dy_gt - dy_base,
                                  do_gt - do_base]
@@ -346,6 +372,7 @@ class PointNavEnv(habitat.RLEnv):
 
     def get_sim_location(self):
         agent_state = super().habitat_env.sim.get_agent_state(0)
+        print("sim location, agent state ", agent_state)
         x = -agent_state.position[2]
         y = -agent_state.position[0]
         axis = quaternion.as_euler_angles(agent_state.rotation)[0]
@@ -355,12 +382,24 @@ class PointNavEnv(habitat.RLEnv):
             o = 2*np.pi - quaternion.as_euler_angles(agent_state.rotation)[1]
         if o > np.pi:
             o -= 2 * np.pi
+        print("sim location in map, ", x, y, o)            
         return x, y, o
 
+    def get_goal_in_start_pose(self):
+        goal = super().habitat_env.current_episode.goals[0].position
+        current_pose = super().habitat_env.sim.get_agent_state(0)
+        dx_sim = goal[0] - current_pose.position[0]
+        dy_sim = goal[1] - current_pose.position[1]
+        dz_sim = goal[2] - current_pose.position[2]
+        dx = -dz_sim
+        dy = -dx_sim
+        return [dx, dy]
 
     def get_gt_pose_change(self):
         curr_sim_pose = self.get_sim_location()
         dx, dy, do = pu.get_rel_pose_change(curr_sim_pose, self.last_sim_location)
+        print("prev pose ", self.last_sim_location)
+        print("curr pose ", curr_sim_pose)
         self.last_sim_location = curr_sim_pose
         return dx, dy, do
 
@@ -369,9 +408,10 @@ class PointNavEnv(habitat.RLEnv):
 
         args = self.args
 
-        # Get Map prediction
+        # Get Map prediction / local map and exp
         map_pred = inputs['map_pred']
         exp_pred = inputs['exp_pred']
+
 
         grid = np.rint(map_pred)
         explored = np.rint(exp_pred)
@@ -395,7 +435,7 @@ class PointNavEnv(habitat.RLEnv):
                  int(c * 100.0/args.map_resolution - gy1)]
         start = pu.threshold_poses(start, grid.shape)
         #TODO: try reducing this
-
+        print("updated curr loc :", self.curr_loc)
         self.visited[gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                        start[1]-2:start[1]+3] = 1
 
@@ -418,7 +458,7 @@ class PointNavEnv(habitat.RLEnv):
         start_gt = [int(r * 100.0/args.map_resolution),
                     int(c * 100.0/args.map_resolution)]
         start_gt = pu.threshold_poses(start_gt, self.visited_gt.shape)
-        #self.visited_gt[start_gt[0], start_gt[1]] = 1
+        self.visited_gt[start_gt[0], start_gt[1]] = 1
 
         steps = 25
         for i in range(steps):
@@ -442,7 +482,7 @@ class PointNavEnv(habitat.RLEnv):
         stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window)
 
         # Find GT action
-        if self.args.eval or not self.args.train_local:
+        if not self.args.use_optimal_policy and not self.args.train_local:
             gt_action = 0
         else:
             gt_action = self._get_gt_action(1 - self.explorable_map, start,
@@ -451,7 +491,7 @@ class PointNavEnv(habitat.RLEnv):
 
         (stg_x, stg_y) = stg
         relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
-        relative_dist = relative_dist*5./100.
+        relative_dist = relative_dist*args.map_resolution/100.
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
                                                 stg_y - start[1]))
         angle_agent = (start_o)%360.0
@@ -487,7 +527,7 @@ class PointNavEnv(habitat.RLEnv):
         output[2] = gt_action
 
         self.relative_angle = relative_angle
-
+        print("short term goal : ", output)
         if args.visualize or args.print_images:
             dump_dir = "{}/dump/{}/".format(args.dump_location,
                                                 args.exp_name)
@@ -536,7 +576,7 @@ class PointNavEnv(habitat.RLEnv):
                             args.print_images, args.vis_type)
         return output
 
-        
+
     def _get_gt_map(self, full_map_size):
         self.scene_name = self.habitat_env.sim.config.SCENE
         logger.error('Computing map for %s', self.scene_name)
@@ -740,16 +780,15 @@ class PointNavEnv(habitat.RLEnv):
         angle_agent = (start_o)%360.0
         if angle_agent > 180:
             angle_agent -= 360
-
         relative_angle = (angle_agent - angle_st_goal)%360.0
         if relative_angle > 180:
             relative_angle -= 360
 
-        if relative_angle > 15.:
-            gt_action = 1
-        elif relative_angle < -15.:
-            gt_action = 0
+        if relative_angle > 30.:
+            gt_action = HabitatSimActions.TURN_RIGHT
+        elif relative_angle < -30.:
+            gt_action = HabitatSimActions.TURN_LEFT
         else:
-            gt_action = 2
-
+            gt_action = HabitatSimActions.MOVE_FORWARD
+        print("gt action ", gt_action)
         return gt_action

@@ -6,6 +6,14 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='Active-Neural-SLAM')
 
+    ## added by akshay
+    parser.add_argument('--use_gt_pose', type=int, default=0,
+                        help='ground truth pose vs slam (default: 0)')
+    parser.add_argument('--use_gt_map', type=int, default=0,
+                        help='gt map vs neuralMap (default: 0)')
+    parser.add_argument('--use_optimal_policy', type=int, default=0,
+                        help='use classical method (default: 1)')
+
     ## General Arguments
     parser.add_argument('--seed', type=int, default=1,
                         help='random seed (default: 1)')

@@ -63,7 +63,6 @@ class Neural_SLAM_Module(nn.Module):
 
     def __init__(self, args):
         super(Neural_SLAM_Module, self).__init__()
-
         self.device = args.device
         self.screen_h = args.frame_height
         self.screen_w = args.frame_width
@@ -315,6 +314,7 @@ class Local_IL_Policy(NNBase):
     def __init__(self, input_shape, num_actions, recurrent=False,
                  hidden_size=512, deterministic=False):
 
+        print("local policy input shape ", input_shape)
         super(Local_IL_Policy, self).__init__(recurrent, hidden_size,
                                               hidden_size)
 
@@ -351,6 +351,7 @@ class Local_IL_Policy(NNBase):
         self.train()
 
     def forward(self, rgb, rnn_hxs, masks, extras):
+        print("actual input shape ", rgb.shape)
         if self.deterministic:
             x = torch.zeros(extras.size(0), 3)
             for i, stg in enumerate(extras):

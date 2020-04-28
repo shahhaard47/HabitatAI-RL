@@ -12,7 +12,9 @@ from habitat import get_config as cfg_baseline
 
 
 def make_env_fn(args, config_env, config_baseline, rank):
-    print(config_env.DATASET)
+    print("-------------- condig_env ---------------")
+    print(config_env)
+    print("-----------------------------------------")
     dataset = PointNavDatasetV1(config_env.DATASET)
     print("Loading {}".format(config_env.SIMULATOR.SCENE))
     env = PointNavEnv(args=args, rank=rank, config_env=config_env, config_baseline=config_baseline, dataset=dataset)
@@ -28,9 +30,6 @@ def construct_envs(args):
     # TODO check params consistency here
     basic_config = cfg_env(config_paths=
                            [args.task_config])
-    basic_config.defrost()
-    basic_config.DATASET.SPLIT = args.split
-    basic_config.freeze()
 
     print("loading scenes ...")
     scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
