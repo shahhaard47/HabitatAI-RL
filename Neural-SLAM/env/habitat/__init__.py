@@ -58,7 +58,8 @@ def construct_envs(args):
         else:
             gpu_id = int((i - args.num_processes_on_first_gpu)
                          // args.num_processes_per_gpu) + args.sim_gpu_id
-        gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
+#         gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
+        gpu_id = 0
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
         config_env.freeze()
         env_configs.append(config_env)
