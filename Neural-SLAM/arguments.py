@@ -66,7 +66,7 @@ def get_args():
                         help='1:Render the frame (default: 0)')
     parser.add_argument('--vis_type', type=int, default=1,
                         help='1: Show predicted map, 2: Show GT map')
-    parser.add_argument('--print_images', type=int, default=0,
+    parser.add_argument('--print_images', type=int, default=1,
                         help='1: save visualization as images')
     parser.add_argument('--save_trajectory_data', type=str, default="0")
 

@@ -151,9 +151,11 @@ class PointNavEnv(habitat.RLEnv):
         # position in simulator coordinates
         self.last_sim_location = self.get_sim_location()
 
-        goal_xy = self.get_goal_in_start_pose()
+        goal_xy = self.goal_in_agent_frame()
         self.goal_rc = [int((self.curr_loc[1] + goal_xy[1])*100/args.map_resolution), 
                     int((self.curr_loc[0] + goal_xy[0])*100/args.map_resolution)]
+        print("goal from dataset ", goal_xy)
+        print("goal from the sim ", obs['pointgoal'])
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
                           self.curr_loc_gt[1]*100.0,
@@ -235,6 +237,7 @@ class PointNavEnv(habitat.RLEnv):
         # gt pose change from sim
         dx_gt, dy_gt, do_gt = self.get_gt_pose_change()
         dx_base, dy_base, do_base = self.get_noiseless_map_dpose(self.curr_loc, action)
+
         print('---------')
         print("POINTGOAL, rew, done, ", obs['pointgoal'], rew, done)
         print("DPOSE: GT ", dx_gt, dy_gt, do_gt, " EXPECTED: ", dx_base, dy_base, do_base)
@@ -394,6 +397,15 @@ class PointNavEnv(habitat.RLEnv):
         dx = -dz_sim
         dy = -dx_sim
         return [dx, dy]
+
+    def goal_in_agent_frame(self):
+        goal = super().habitat_env.current_episode.goals[0].position
+        agent_T = super().habitat_env.sim.get_agent_state(0).position.transpose()
+        agent_quat = super().habitat_env.sim.get_agent_state(0).rotation
+        agent_R = quaternion.as_rotation_matrix(agent_quat).transpose()
+        transformed_goal = np.matmul(agent_R, np.array(goal).transpose() - agent_T)
+        goal2d = np.array([-transformed_goal[2], -transformed_goal[0]])
+        return goal2d
 
     def get_gt_pose_change(self):
         curr_sim_pose = self.get_sim_location()
