@@ -11,3 +11,5 @@ rgbd.pth
 train.log
 Archive.zip
 tb/
+video_dir
+habitat-api/
