@@ -78,6 +78,14 @@ def get_delta_pose(current_pose, action):
 
 
 def main():
+
+    print("---------------------")
+    print("Actions")
+    print(HabitatSimActions.STOP)
+    print(HabitatSimActions.MOVE_FORWARD)
+    print(HabitatSimActions.TURN_LEFT)
+    print(HabitatSimActions.TURN_RIGHT)
+
     log_dir = "{}/models/{}/".format(args.dump_location, args.exp_name)
     dump_dir = "{}/dump/{}/".format(args.dump_location, args.exp_name)
     if not os.path.exists(log_dir):
