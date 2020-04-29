@@ -1,4 +1,10 @@
 habitat-challenge/habitat-challenge-data/data
 splitnet/data
 splitnet/downloaded_data
+data
+tmp/
+pretrained_models/
+# for tensorboard (from E2E ppo code)
+tb/ 
 
+__pycache__

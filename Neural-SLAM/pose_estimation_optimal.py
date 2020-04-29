@@ -21,6 +21,8 @@ import algo
 import sys
 import matplotlib
 
+from tqdm import tqdm
+
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
 import matplotlib.pyplot as plt
@@ -113,7 +115,7 @@ def main():
     obs, infos = envs.reset()
     print("environments reset")
 
-    show_gpu_usage()
+    # show_gpu_usage()
     # Initialize map variables
     ### Full map consists of 4 channels containing the following:
     ### 1. Obstacle Map
@@ -142,7 +144,7 @@ def main():
     ### 4-7 store local map boundaries
     # planner_pose_inputs = np.zeros((num_scenes, 7))
 
-    show_gpu_usage()
+    # show_gpu_usage()
 
     def init_map_and_pose():
         full_map.fill_(0.)
@@ -173,7 +175,7 @@ def main():
     init_map_and_pose()
     print("maps and poses intialized")
 
-    show_gpu_usage()
+    # show_gpu_usage()
 
     print("defining architecture")
     # slam
@@ -194,7 +196,7 @@ def main():
     #                            hidden_size=args.local_hidden_size,
     #                            deterministic=args.use_deterministic_local).to(device)
     # local_optimizer = get_optimizer(l_policy.parameters(), args.local_optimizer)
-    show_gpu_usage()
+    # show_gpu_usage()
 
     print("loading model weights")
     # Loading model
@@ -238,6 +240,7 @@ def main():
     #     print("slam module returned pose and maps")
     #     show_gpu_usage()
 
+    # NOT NEEDED : 4/29 
     local_pose_np = local_pose.cpu().numpy()
     # update local map for each scene - input for planner
     for e in range(num_scenes):
@@ -272,10 +275,17 @@ def main():
     torch.set_grad_enabled(False)
 
     print("starting episodes")
-    for ep_num in range(num_episodes):
-        for step in range(args.max_episode_length):
-            print("------------------------------------------------------")
-            print("episode ", ep_num, "step ", step)
+    for itr_counter, ep_num in enumerate(range(num_episodes)):
+        print("------------------------------------------------------")
+        print("Episode", ep_num)
+
+        if itr_counter >= 2:
+            print("DONE WE FIXED IT")
+            die()
+        step_bar = tqdm(range(args.max_episode_length))
+        for step in step_bar:
+            # print("------------------------------------------------------")
+            # print("episode ", ep_num, "step ", step)
             total_num_steps += 1
             l_step = step % args.num_local_steps
 
@@ -285,39 +295,53 @@ def main():
             del last_obs
             last_obs = obs.detach()
             #             if not args.use_optimal_policy and not args.use_shortest_path_gt:
-            #                 local_masks = l_masks
-            #                 local_goals = planner_out[:, :-1].to(device).long()
+                #                 local_masks = l_masks
+                #                 local_goals = planner_out[:, :-1].to(device).long()
 
-            #                 if args.train_local:
-            #                     torch.set_grad_enabled(True)
+                #                 if args.train_local:
+                #                     torch.set_grad_enabled(True)
 
-            #                 # local policy "step"
-            #                 action, action_prob, local_rec_states = l_policy(
-            #                     obs,
-            #                     local_rec_states,
-            #                     local_masks,
-            #                     extras=local_goals,
-            #                 )
+                #                 # local policy "step"
+                #                 action, action_prob, local_rec_states = l_policy(
+                #                     obs,
+                #                     local_rec_states,
+                #                     local_masks,
+                #                     extras=local_goals,
+                #                 )
 
-            #                 if args.train_local:
-            #                     action_target = planner_out[:, -1].long().to(device)
-            #                     # doubt: this is probably wrong? one is action probability and the other is action
-            #                     policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
-            #                     torch.set_grad_enabled(False)
-            #                 l_action = action.cpu()
-            #             else:
-            #                 if args.use_optimal_policy:
-            #                     l_action = planner_out[:, -1]
-            #                 else:
-            #                     l_action = envs.get_optimal_gt_action()
+                #                 if args.train_local:
+                #                     action_target = planner_out[:, -1].long().to(device)
+                #                     # doubt: this is probably wrong? one is action probability and the other is action
+                #                     policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
+                #                     torch.set_grad_enabled(False)
+                #                 l_action = action.cpu()
+                #             else:
+                #                 if args.use_optimal_policy:
+                #                     l_action = planner_out[:, -1]
+                #                 else:
+                #                     l_action = envs.get_optimal_gt_action()
 
             l_action = envs.get_optimal_gt_action().cpu()
+
+            
             # ------------------------------------------------------------------
             # ------------------------------------------------------------------
             # Env step
-            print("stepping with action ", l_action)
-            obs, rew, done, infos = envs.step(l_action)
-            print("rew, done, info-sensor_pose, pose_err after stepping ", rew, done, infos[0]['sensor_pose'],
+            # print("stepping with action ", l_action)
+            try:
+                obs, rew, done, infos = envs.step(l_action)
+            except:
+                print("can't do that")
+                print(l_action)
+                init_map_and_pose()
+                del last_obs
+                last_obs = obs.detach()
+                print("Reinitialize since at end of episode ")
+                break
+            # step_bar.set_description("rew, done, info-sensor_pose, pose_err (stepping) {}, {}, {}, {}".format(rew, done, infos[0]['sensor_pose'], infos[0]['pose_err']))
+            if total_num_steps % args.log_interval == 0:
+
+                print("rew, done, info-sensor_pose, pose_err after stepping ", rew, done, infos[0]['sensor_pose'],
                   infos[0]['pose_err'])
             # l_masks = torch.FloatTensor([0 if x else 1
             #                              for x in done]).to(device)
@@ -327,11 +351,12 @@ def main():
             # Reinitialize variables when episode ends
             # doubt what if episode ends before max_episode_length?
             # maybe add (or done ) here?
-            if step == args.max_episode_length - 1:  # Last episode step
+            if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
                 init_map_and_pose()
                 del last_obs
                 last_obs = obs.detach()
                 print("Reinitialize since at end of episode ")
+                break
 
             # ------------------------------------------------------------------
             # ------------------------------------------------------------------
@@ -359,11 +384,11 @@ def main():
                         (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
                     delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
             delta_poses = torch.from_numpy(delta_poses_np).float().to(device)
-            print("delta pose from SLAM ", delta_poses)
+            # print("delta pose from SLAM ", delta_poses)
             _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
                     nslam_module(last_obs, obs, delta_poses, local_map[:, 0, :, :],
                                  local_map[:, 1, :, :], local_pose, build_maps=True)
-            print("updated local pose from SLAM ", local_pose)
+            # print("updated local pose from SLAM ", local_pose)
             # if args.use_gt_pose:
             #     # todo update local_pose here
             #     full_pose = envs.get_gt_pose()
@@ -390,58 +415,58 @@ def main():
 
             # ------------------------------------------------------------------
             # Global Policy
-            # if l_step == args.num_local_steps - 1:
-            #     # For every global step, update the full and local maps
-            #     for e in range(num_scenes):
-            #         full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]] = \
-            #             local_map[e]
-            #         full_pose[e] = local_pose[e] + \
-            #                        torch.from_numpy(origins[e]).to(device).float()
-            #
-            #         full_pose_np = full_pose[e].cpu().numpy()
-            #         r, c = full_pose_np[1], full_pose_np[0]
-            #         loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
-            #                         int(c * 100.0 / args.map_resolution)]
-            #
-            #         lmb[e] = get_local_map_boundaries((loc_r, loc_c),
-            #                                           (local_w, local_h),
-            #                                           (full_w, full_h))
-            #
-            #         planner_pose_inputs[e, 3:] = lmb[e]
-            #         origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
-            #                       lmb[e][0] * args.map_resolution / 100.0, 0.]
-            #
-            #         local_map[e] = full_map[e, :,
-            #                        lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
-            #         local_pose[e] = full_pose[e] - \
-            #                         torch.from_numpy(origins[e]).to(device).float()
-            #
-            #     local_pose_np = local_pose.cpu().numpy()
-            #
-            #     if False:
-            #         for i in range(4):
-            #             ax[i].clear()
-            #             ax[i].set_yticks([])
-            #             ax[i].set_xticks([])
-            #             ax[i].set_yticklabels([])
-            #             ax[i].set_xticklabels([])
-            #             ax[i].imshow(global_input.cpu().numpy()[0, 4 + i])
-            #         plt.gcf().canvas.flush_events()
-            #         # plt.pause(0.1)
-            #         fig.canvas.start_event_loop(0.001)
-            #         plt.gcf().canvas.flush_events()
-            #
-            # # ------------------------------------------------------------------
-            # # Get short term goal
-            # planner_inputs = [{} for e in range(num_scenes)]
-            # for e, p_input in enumerate(planner_inputs):
-            #     p_input['map_pred'] = local_map[e, 0, :, :].cpu().numpy()
-            #     p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
-            #     p_input['pose_pred'] = planner_pose_inputs[e]
-            #     p_input['goal'] = global_goals[e].cpu().numpy()
-            #
-            # planner_out = envs.get_short_term_goal(planner_inputs)
-            # ------------------------------------------------------------------
+                # if l_step == args.num_local_steps - 1:
+                #     # For every global step, update the full and local maps
+                #     for e in range(num_scenes):
+                #         full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]] = \
+                #             local_map[e]
+                #         full_pose[e] = local_pose[e] + \
+                #                        torch.from_numpy(origins[e]).to(device).float()
+                #
+                #         full_pose_np = full_pose[e].cpu().numpy()
+                #         r, c = full_pose_np[1], full_pose_np[0]
+                #         loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
+                #                         int(c * 100.0 / args.map_resolution)]
+                #
+                #         lmb[e] = get_local_map_boundaries((loc_r, loc_c),
+                #                                           (local_w, local_h),
+                #                                           (full_w, full_h))
+                #
+                #         planner_pose_inputs[e, 3:] = lmb[e]
+                #         origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
+                #                       lmb[e][0] * args.map_resolution / 100.0, 0.]
+                #
+                #         local_map[e] = full_map[e, :,
+                #                        lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
+                #         local_pose[e] = full_pose[e] - \
+                #                         torch.from_numpy(origins[e]).to(device).float()
+                #
+                #     local_pose_np = local_pose.cpu().numpy()
+                #
+                #     if False:
+                #         for i in range(4):
+                #             ax[i].clear()
+                #             ax[i].set_yticks([])
+                #             ax[i].set_xticks([])
+                #             ax[i].set_yticklabels([])
+                #             ax[i].set_xticklabels([])
+                #             ax[i].imshow(global_input.cpu().numpy()[0, 4 + i])
+                #         plt.gcf().canvas.flush_events()
+                #         # plt.pause(0.1)
+                #         fig.canvas.start_event_loop(0.001)
+                #         plt.gcf().canvas.flush_events()
+                #
+                # # ------------------------------------------------------------------
+                # # Get short term goal
+                # planner_inputs = [{} for e in range(num_scenes)]
+                # for e, p_input in enumerate(planner_inputs):
+                #     p_input['map_pred'] = local_map[e, 0, :, :].cpu().numpy()
+                #     p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
+                #     p_input['pose_pred'] = planner_pose_inputs[e]
+                #     p_input['goal'] = global_goals[e].cpu().numpy()
+                #
+                # planner_out = envs.get_short_term_goal(planner_inputs)
+                # ------------------------------------------------------------------
 
             ### TRAINING
             torch.set_grad_enabled(True)
