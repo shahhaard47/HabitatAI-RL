@@ -11,3 +11,6 @@ rgbd.pth
 train.log
 Archive.zip
 tb/
+tensorboard/
+train_pose_estimation.local.rgbd.yaml
+habitat-challenge
