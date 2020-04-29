@@ -72,3 +72,7 @@ class VecPyTorch():
 
     def get_goal_coords(self):
         return torch.tensor(self.venv.get_goal_coords()).int().to(self.device)
+    
+    def get_optimal_gt_action(self):
+        action = self.venv.get_optimal_gt_action()
+        return torch.tensor(action).int().to(self.device)

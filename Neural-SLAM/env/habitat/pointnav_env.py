@@ -29,6 +29,10 @@ from env.habitat.utils import pose as pu
 from env.habitat.utils import visualizations as vu
 from env.habitat.utils.supervision import HabitatMaps
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
+from habitat.utils.geometry_utils import (
+    angle_between_quaternions,
+    quaternion_from_two_vectors,
+    )
 
 from model import get_grid
 
@@ -587,6 +591,51 @@ class PointNavEnv(habitat.RLEnv):
                             self.timestep, args.visualize,
                             args.print_images, args.vis_type)
         return output
+
+    def get_optimal_gt_action(self):
+        EPSILON = 1e-6
+        config_env = super().habitat_env._config
+        goal_pos = super().habitat_env.current_episode.goals[0].position
+        goal_radius = config_env.TASK.SUCCESS_DISTANCE
+        current_state = super().habitat_env.get_agent_state()
+        if (super().habitat_env.geodesic_distance(
+                current_state.position, goal_pos
+        )
+                <= goal_radius
+        ):
+            return HabitatSimActions.STOP
+        points = super().habitat_env.get_straight_shortest_path_points(
+            current_state.position, goal_pos
+        )
+        # Add a little offset as things get weird if
+        # points[1] - points[0] is anti-parallel with forward
+        if len(points) < 2:
+            max_grad_dir = None
+        else:
+            max_grad_dir = quaternion_from_two_vectors(
+                super().habitat_env.forward_vector,
+                points[1]
+                - points[0]
+                + EPSILON
+                * np.cross(super().habitat_env.up_vector, super().habitat_env.forward_vector),
+            )
+            max_grad_dir.x = 0
+            max_grad_dir = np.normalized(max_grad_dir)
+        if max_grad_dir is None:
+            return HabitatSimActions.MOVE_FORWARD
+        else:
+            alpha = angle_bet_quat(max_grad_dir, current_state.rotation)
+            if alpha <= np.deg2rad(config_env.TURN_ANGLE) + EPSILON:
+                return HabitatSimActions.MOVE_FORWARD
+            else:
+                if (angle_between_quaternions(
+                            grad_dir, orientation_estimate
+                        )
+                        < alpha):
+                    return HabitatSimActions.TURN_LEFT
+                else:
+                    return HabitatSimActions.TURN_RIGHT
+        return HabitatSimActions.STOP
 
 
     def _get_gt_map(self, full_map_size):
