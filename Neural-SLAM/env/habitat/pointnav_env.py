@@ -597,15 +597,15 @@ class PointNavEnv(habitat.RLEnv):
         config_env = super().habitat_env._config
         goal_pos = super().habitat_env.current_episode.goals[0].position
         goal_radius = config_env.TASK.SUCCESS_DISTANCE
-        current_state = super().habitat_env.get_agent_state()
-        if (super().habitat_env.geodesic_distance(
+        current_state = super().habitat_env.sim.get_agent_state()
+        if (super().habitat_env.sim.geodesic_distance(
                 current_state.position, goal_pos
         )
                 <= goal_radius
         ):
             print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
             return HabitatSimActions.STOP
-        points = super().habitat_env.get_straight_shortest_path_points(
+        points = super().habitat_env.sim.get_straight_shortest_path_points(
             current_state.position, goal_pos
         )
         # Add a little offset as things get weird if
@@ -614,11 +614,11 @@ class PointNavEnv(habitat.RLEnv):
             max_grad_dir = None
         else:
             max_grad_dir = quaternion_from_two_vectors(
-                super().habitat_env.forward_vector,
+                super().habitat_env.sim.forward_vector,
                 points[1]
                 - points[0]
                 + EPSILON
-                * np.cross(super().habitat_env.up_vector, super().habitat_env.forward_vector),
+                * np.cross(super().habitat_env.sim.up_vector, super().habitat_env.sim.forward_vector),
             )
             max_grad_dir.x = 0
             max_grad_dir = np.normalized(max_grad_dir)
