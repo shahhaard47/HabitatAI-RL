@@ -76,7 +76,12 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
         fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
             dump_dir, (rank + 1), ep_no, rank, ep_no, t)
         plt.savefig(fn)
-
+    
+    # return plt into ndarray
+    pfig = plt.figure()
+    pfig.canvas.draw()
+    ndplt = np.fromstring(pfig.canvas.tostring_rgb(), dtype=np.int8, sep='')
+    return ndplt
 
 def insert_circle(mat, x, y, value):
     mat[x - 2: x + 3, y - 2:y + 3] = value

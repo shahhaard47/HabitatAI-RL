@@ -77,6 +77,13 @@ class PointNavEnv(habitat.RLEnv):
         self.maps_dict = {}
 
         self.total_num_steps = 0 # from pose_estimation_optimal synchronized logging purposes
+        self.numpy_visualizations = [] # for tb visualizations
+    
+    def get_numpy_vis(self):
+        return self.numpy_visualizations
+
+    def reset_numpy_vis(self):
+        self.numpy_visualizations = []
 
     # shuffle the order of episodes once in a while
     def randomize_env(self):
@@ -548,52 +555,55 @@ class PointNavEnv(habitat.RLEnv):
 
         # self.relative_angle = relative_angle
         # print("short term goal : ", output)
-        if args.visualize or args.print_images:
-            dump_dir = "{}/dump/{}/".format(args.dump_location,
-                                                args.exp_name)
-            ep_dir = '{}/episodes/{}/{}/'.format(
-                            dump_dir, self.rank+1, self.episode_no)
-            if not os.path.exists(ep_dir):
-                os.makedirs(ep_dir)
+        np_vis_img = None
+        if self.total_num_steps % args.print_frequency == 0:
+            if args.visualize or args.print_images:
+                dump_dir = "{}/dump/{}/".format(args.dump_location,
+                                                    args.exp_name)
+                ep_dir = '{}/episodes/{}/{}/'.format(
+                                dump_dir, self.rank+1, self.episode_no)
+                if not os.path.exists(ep_dir):
+                    os.makedirs(ep_dir)
 
-            if args.vis_type == 1: # Visualize predicted map and pose
-                vis_grid = vu.get_colored_map(np.rint(map_pred),
-                                self.collison_map[gx1:gx2, gy1:gy2],
-                                self.visited_vis[gx1:gx2, gy1:gy2],
-                                self.visited_gt[gx1:gx2, gy1:gy2],
-                                goal,
-                                self.explored_map[gx1:gx2, gy1:gy2],
-                                self.explorable_map[gx1:gx2, gy1:gy2],
-                                self.map[gx1:gx2, gy1:gy2] *
-                                    self.explored_map[gx1:gx2, gy1:gy2])
-                vis_grid = np.flipud(vis_grid)
-                vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
-                            (start_x - gy1*args.map_resolution/100.0,
-                             start_y - gx1*args.map_resolution/100.0,
-                             start_o),
-                            (start_x_gt - gy1*args.map_resolution/100.0,
-                             start_y_gt - gx1*args.map_resolution/100.0,
-                             start_o_gt),
-                            dump_dir, self.rank, self.episode_no,
-                            self.timestep, args.visualize,
-                            args.print_images, args.vis_type)
+                if args.vis_type == 1: # Visualize predicted map and pose
+                    vis_grid = vu.get_colored_map(np.rint(map_pred),
+                                    self.collison_map[gx1:gx2, gy1:gy2],
+                                    self.visited_vis[gx1:gx2, gy1:gy2],
+                                    self.visited_gt[gx1:gx2, gy1:gy2],
+                                    goal,
+                                    self.explored_map[gx1:gx2, gy1:gy2],
+                                    self.explorable_map[gx1:gx2, gy1:gy2],
+                                    self.map[gx1:gx2, gy1:gy2] *
+                                        self.explored_map[gx1:gx2, gy1:gy2])
+                    vis_grid = np.flipud(vis_grid)
+                    np_vis_img = vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
+                                (start_x - gy1*args.map_resolution/100.0,
+                                start_y - gx1*args.map_resolution/100.0,
+                                start_o),
+                                (start_x_gt - gy1*args.map_resolution/100.0,
+                                start_y_gt - gx1*args.map_resolution/100.0,
+                                start_o_gt),
+                                dump_dir, self.rank, self.episode_no,
+                                self.timestep, args.visualize,
+                                args.print_images, args.vis_type)
 
-            else: # Visualize ground-truth map and pose
-                vis_grid = vu.get_colored_map(self.map,
-                                self.collison_map,
-                                self.visited_gt,
-                                self.visited_gt,
-                                (self.goal_rc[0], self.goal_rc[1]),
-                                self.explored_map,
-                                self.explorable_map,
-                                self.map*self.explored_map)
-                vis_grid = np.flipud(vis_grid)
-                vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
-                            (start_x_gt, start_y_gt, start_o_gt),
-                            (start_x_gt, start_y_gt, start_o_gt),
-                            dump_dir, self.rank, self.episode_no,
-                            self.timestep, args.visualize,
-                            args.print_images, args.vis_type)
+                else: # Visualize ground-truth map and pose
+                    vis_grid = vu.get_colored_map(self.map,
+                                    self.collison_map,
+                                    self.visited_gt,
+                                    self.visited_gt,
+                                    (self.goal_rc[0], self.goal_rc[1]),
+                                    self.explored_map,
+                                    self.explorable_map,
+                                    self.map*self.explored_map)
+                    vis_grid = np.flipud(vis_grid)
+                    np_vis_img =  vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
+                                (start_x_gt, start_y_gt, start_o_gt),
+                                (start_x_gt, start_y_gt, start_o_gt),
+                                dump_dir, self.rank, self.episode_no,
+                                self.timestep, args.visualize,
+                                args.print_images, args.vis_type)
+        if np_vis_img is not None: self.numpy_visualizations.append(np_vis_img)
         return [0.0, 0.0, 0.0]
 
     def get_optimal_gt_action(self, debug=False):

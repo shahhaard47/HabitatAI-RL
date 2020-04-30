@@ -110,6 +110,7 @@ def main():
     # setting up rewards and losses
     # policy_loss = 0
     best_cost = float('inf')
+    best_slam_loss = 10000000
     costs = deque(maxlen=1000)
     exp_costs = deque(maxlen=1000)
     pose_costs = deque(maxlen=1000)
@@ -294,6 +295,7 @@ def main():
             #     print("DONE WE FIXED IT")
             #     die()
             # for step in range(args.max_episode_length):
+            visimgs = []
             step_bar = tqdm(range(args.max_episode_length))
             for step in step_bar:
                 # print("------------------------------------------------------")
@@ -394,6 +396,7 @@ def main():
                 if args.train_slam:
                     # Add frames to memory
                     for env_idx in range(num_scenes):
+                        delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
                         env_obs = obs[env_idx].to("cpu")
                         env_poses = torch.from_numpy(np.asarray(
                             delta_poses_np[env_idx]
@@ -411,7 +414,6 @@ def main():
                         slam_memory.push(
                             (last_obs[env_idx].cpu(), env_obs, env_poses),
                             (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
-                        delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
                 delta_poses = torch.from_numpy(delta_poses_np).float().to(device)
                 # print("delta pose from SLAM ", delta_poses)
                 _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
@@ -446,12 +448,15 @@ def main():
                     p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
                     p_input['pose_pred'] = planner_pose_inputs[e]
                     p_input['goal'] = global_goals[e].cpu().numpy()
+                
                 planner_out = envs.get_short_term_goal(planner_inputs)
+
 
                 ### TRAINING
                 torch.set_grad_enabled(True)
                 # ------------------------------------------------------------------
                 # Train Neural SLAM Module
+                slam_overall_loss = 0.0
                 if args.train_slam and len(slam_memory) > args.slam_batch_size:
                     for _ in range(args.slam_iterations):
                         inputs, outputs = slam_memory.sample(args.slam_batch_size)
@@ -495,10 +500,13 @@ def main():
                             loss.backward()
                             slam_optimizer.step()
 
+                        slam_overall_loss += loss
+
                         del b_obs_last, b_obs, b_poses
                         del gt_fp_projs, gt_fp_explored, gt_pose_err
                         del b_proj_pred, b_fp_exp_pred, b_pose_err_pred
 
+                    slam_overall_loss /= args.slam_iterations # mean across iterations
                 # ------------------------------------------------------------------
 
                 # ------------------------------------------------------------------
@@ -519,9 +527,6 @@ def main():
 
                 # ------------------------------------------------------------------
                 # Logging
-                writer.add_scalar("SLAM_Loss_Proj", np.mean(costs), total_num_steps)
-                writer.add_scalar("SLAM_Loss_Exp", np.mean(exp_costs), total_num_steps)
-                writer.add_scalar("SLAM_Loss_Pose", np.mean(pose_costs), total_num_steps)
 
                 gettime = lambda: str(datetime.now()).split('.')[0]
                 if total_num_steps % args.log_interval == 0:
@@ -548,8 +553,9 @@ def main():
 
                     if args.train_slam and len(costs) > 0:
                         log += " ".join([
-                            " SLAM Loss proj/exp/pose:"
-                            "{:.4f}/{:.4f}/{:.4f}".format(
+                            " SLAM Loss overall/proj/exp/pose:"
+                            "{:.4f}/{:.4f}/{:.4f}/{:.4f}".format(
+                                slam_overall_loss,
                                 np.mean(costs),
                                 np.mean(exp_costs),
                                 np.mean(pose_costs))
@@ -567,9 +573,15 @@ def main():
                     # Save Neural SLAM Model
                     if len(costs) >= 1000 and np.mean(costs) < best_cost \
                             and not args.eval:
-                        print("Saved best model")
+                        print("Saved best proj model")
                         best_cost = np.mean(costs)
                         torch.save(nslam_module.state_dict(),
+                                os.path.join(log_dir, "model_best_proj.slam"))
+                    
+                    if slam_overall_loss < best_slam_loss and not args.eval:
+                        print("Saved best overall loss model")
+                        best_slam_loss = slam_overall_loss
+                        torch.save(nslam_module.state_dict(), 
                                 os.path.join(log_dir, "model_best.slam"))
 
                     # Save Local Policy Model
@@ -580,7 +592,11 @@ def main():
                     #                os.path.join(log_dir, "model_best.local"))
                     #
                     #     best_local_loss = np.mean(l_action_losses)
-
+                writer.add_scalar("proj_loss_slam", np.mean(costs), total_num_steps)
+                writer.add_scalar("exp_loss_slam", np.mean(exp_costs), total_num_steps)
+                writer.add_scalar("pose_loss_slam", np.mean(pose_costs), total_num_steps)
+                writer.add_scalar("SLAM_overall_Loss", slam_overall_loss, total_num_steps)
+                writer.add_scalar("SLAM_best_loss", best_slam_loss, total_num_steps)
                 # Save periodic models
                 if (total_num_steps * num_scenes) % args.save_periodic < \
                         num_scenes:
@@ -597,6 +613,15 @@ def main():
 
                 if  l_action == HabitatSimActions.STOP:  # Last episode step
                     break
+            
+            npvis_images = np.array(envs.get_numpy_vis())
+            writer.add_video_from_np_images(
+                video_name="ep_{}".format(ep_num),
+                step_idx=total_num_steps,
+                images=npvis_images,
+                fps=3
+            )
+            envs.reset_numpy_vis()
 
     # Print and save model performance numbers during evaluation
     if args.eval:

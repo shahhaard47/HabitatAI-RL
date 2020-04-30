@@ -68,6 +68,8 @@ def get_args():
                         help='1: Show predicted map, 2: Show GT map')
     parser.add_argument('--print_images', type=int, default=1,
                         help='1: save visualization as images')
+    parser.add_argument('--print_frequency', type=int, default=1,
+                        help='save image frequency (default every step). DO NOT SET TO 0! Use --print_images to turn it off.')
     parser.add_argument('--save_trajectory_data', type=str, default="0")
 
     # Environment, dataset and episode specifications
