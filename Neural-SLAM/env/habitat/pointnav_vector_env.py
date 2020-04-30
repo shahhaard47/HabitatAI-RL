@@ -153,6 +153,7 @@ class VectorEnv:
         try:
             command, data = connection_read_fn()
             while command != CLOSE_COMMAND:
+                # print("***vec_env***", command)
                 if command == STEP_COMMAND:
                     # different step methods for habitat.RLEnv and habitat.Env
                     if isinstance(env, habitat.RLEnv) or isinstance(

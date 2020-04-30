@@ -227,10 +227,10 @@ class PointNavEnv(habitat.RLEnv):
         self._previous_action = action
 
         # get data from simulator
-        try:
-            obs, rew, done, info = super().step(action)
-        except:
-            return
+        # try:
+        obs, rew, done, info = super().step(action)
+        # except:
+            # return
 
         # Preprocess observations - same as in reset
         rgb = obs['rgb'].astype(np.uint8)
@@ -602,7 +602,7 @@ class PointNavEnv(habitat.RLEnv):
         goal_radius = config_env.TASK.SUCCESS_DISTANCE
         current_state = super().habitat_env.sim.get_agent_state()
 
-        return HabitatSimActions.TURN_RIGHT
+        # return HabitatSimActions.STOP
 
         if (super().habitat_env.sim.geodesic_distance(
                 current_state.position, goal_pos

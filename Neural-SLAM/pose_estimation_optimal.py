@@ -81,10 +81,10 @@ def main():
 
     print("---------------------")
     print("Actions")
-    print(HabitatSimActions.STOP)
-    print(HabitatSimActions.MOVE_FORWARD)
-    print(HabitatSimActions.TURN_LEFT)
-    print(HabitatSimActions.TURN_RIGHT)
+    print("STOP", HabitatSimActions.STOP)
+    print("FORWARD", HabitatSimActions.MOVE_FORWARD)
+    print("LEFT", HabitatSimActions.TURN_LEFT)
+    print("RIGHT", HabitatSimActions.TURN_RIGHT)
 
     log_dir = "{}/models/{}/".format(args.dump_location, args.exp_name)
     dump_dir = "{}/dump/{}/".format(args.dump_location, args.exp_name)
@@ -105,7 +105,7 @@ def main():
 
     # setting up rewards and losses
     # policy_loss = 0
-    best_cost = 100000
+    best_cost = float('inf')
     costs = deque(maxlen=1000)
     exp_costs = deque(maxlen=1000)
     pose_costs = deque(maxlen=1000)
@@ -287,9 +287,9 @@ def main():
         print("------------------------------------------------------")
         print("Episode", ep_num)
 
-        if itr_counter >= 2:
-            print("DONE WE FIXED IT")
-            die()
+        # if itr_counter >= 20:
+        #     print("DONE WE FIXED IT")
+        #     die()
         step_bar = tqdm(range(args.max_episode_length))
         for step in step_bar:
             # print("------------------------------------------------------")
@@ -333,19 +333,30 @@ def main():
 
             
             # ------------------------------------------------------------------
-            # ------------------------------------------------------------------
-            # Env step
-            # print("stepping with action ", l_action)
-            try:
-                obs, rew, done, infos = envs.step(l_action)
-            except:
-                print("can't do that")
-                print(l_action)
+            # Reinitialize variables when episode ends
+            # doubt what if episode ends before max_episode_length?
+            # maybe add (or done ) here?
+            if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
                 init_map_and_pose()
                 del last_obs
                 last_obs = obs.detach()
+                # total_num_steps = 0
                 print("Reinitialize since at end of episode ")
                 break
+            # ------------------------------------------------------------------
+            # ------------------------------------------------------------------
+            # Env step
+            # print("stepping with action ", l_action)
+            # try:
+            obs, rew, done, infos = envs.step(l_action)
+            # except:
+            #     print("can't do that")
+            #     print(l_action)
+            #     init_map_and_pose()
+            #     del last_obs
+            #     last_obs = obs.detach()
+            #     print("Reinitialize since at end of episode ")
+            #     break
             # step_bar.set_description("rew, done, info-sensor_pose, pose_err (stepping) {}, {}, {}, {}".format(rew, done, infos[0]['sensor_pose'], infos[0]['pose_err']))
             if total_num_steps % args.log_interval == 0:
 
@@ -355,16 +366,16 @@ def main():
             #                              for x in done]).to(device)
 
             # ------------------------------------------------------------------
-            # ------------------------------------------------------------------
-            # Reinitialize variables when episode ends
-            # doubt what if episode ends before max_episode_length?
-            # maybe add (or done ) here?
-            if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
-                init_map_and_pose()
-                del last_obs
-                last_obs = obs.detach()
-                print("Reinitialize since at end of episode ")
-                break
+            # # ------------------------------------------------------------------
+            # # Reinitialize variables when episode ends
+            # # doubt what if episode ends before max_episode_length?
+            # # maybe add (or done ) here?
+            # if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
+            #     init_map_and_pose()
+            #     del last_obs
+            #     last_obs = obs.detach()
+            #     print("Reinitialize since at end of episode ")
+            #     break
 
             # ------------------------------------------------------------------
             # ------------------------------------------------------------------
@@ -589,6 +600,7 @@ def main():
                 # Save Neural SLAM Model
                 if len(costs) >= 1000 and np.mean(costs) < best_cost \
                         and not args.eval:
+                    print("Saved best model")
                     best_cost = np.mean(costs)
                     torch.save(nslam_module.state_dict(),
                                os.path.join(log_dir, "model_best.slam"))
