@@ -453,8 +453,6 @@ class PointNavEnv(habitat.RLEnv):
         start = [int(r * 100.0/args.map_resolution - gx1),
                  int(c * 100.0/args.map_resolution - gy1)]
         start = pu.threshold_poses(start, grid.shape)
-        #TODO: try reducing this
-        # print("updated curr loc :", self.curr_loc)
         self.visited[gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                        start[1]-2:start[1]+3] = 1
 
@@ -498,54 +496,54 @@ class PointNavEnv(habitat.RLEnv):
         self.intrinsic_rew = -exp_pred[goal[0], goal[1]]
 
         # Get short-term goal
-        stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window)
+        # stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window)
 
         # Find GT action
-        if not self.args.use_optimal_policy and not self.args.train_local:
-            gt_action = 0
-        else:
-            gt_action = self._get_gt_action(1 - self.explorable_map, start,
-                                            [int(stg[0]), int(stg[1])],
-                                            planning_window, start_o)
+        # if not self.args.use_optimal_policy and not self.args.train_local:
+        # gt_action = 0
+        # else:
+        #     gt_action = self._get_gt_action(1 - self.explorable_map, start,
+        #                                     [int(stg[0]), int(stg[1])],
+        #                                     planning_window, start_o)
 
-        (stg_x, stg_y) = stg
-        relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
-        relative_dist = relative_dist*args.map_resolution/100.
-        angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
-                                                stg_y - start[1]))
-        angle_agent = (start_o)%360.0
-        if angle_agent > 180:
-            angle_agent -= 360
+        # (stg_x, stg_y) = stg
+        # relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
+        # relative_dist = relative_dist*args.map_resolution/100.
+        # angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
+        #                                         stg_y - start[1]))
+        # angle_agent = (start_o)%360.0
+        # if angle_agent > 180:
+        #     angle_agent -= 360
 
-        relative_angle = (angle_agent - angle_st_goal)%360.0
-        if relative_angle > 180:
-            relative_angle -= 360
+        # relative_angle = (angle_agent - angle_st_goal)%360.0
+        # if relative_angle > 180:
+        #     relative_angle -= 360
 
-        def discretize(dist):
-            dist_limits = [0.25, 3, 10]
-            dist_bin_size = [0.05, 0.25, 1.]
-            if dist < dist_limits[0]:
-                ddist = int(dist/dist_bin_size[0])
-            elif dist < dist_limits[1]:
-                ddist = int((dist - dist_limits[0])/dist_bin_size[1]) + \
-                    int(dist_limits[0]/dist_bin_size[0])
-            elif dist < dist_limits[2]:
-                ddist = int((dist - dist_limits[1])/dist_bin_size[2]) + \
-                    int(dist_limits[0]/dist_bin_size[0]) + \
-                    int((dist_limits[1] - dist_limits[0])/dist_bin_size[1])
-            else:
-                ddist = int(dist_limits[0]/dist_bin_size[0]) + \
-                    int((dist_limits[1] - dist_limits[0])/dist_bin_size[1]) + \
-                    int((dist_limits[2] - dist_limits[1])/dist_bin_size[2])
-            return ddist
+        # def discretize(dist):
+        #     dist_limits = [0.25, 3, 10]
+        #     dist_bin_size = [0.05, 0.25, 1.]
+        #     if dist < dist_limits[0]:
+        #         ddist = int(dist/dist_bin_size[0])
+        #     elif dist < dist_limits[1]:
+        #         ddist = int((dist - dist_limits[0])/dist_bin_size[1]) + \
+        #             int(dist_limits[0]/dist_bin_size[0])
+        #     elif dist < dist_limits[2]:
+        #         ddist = int((dist - dist_limits[1])/dist_bin_size[2]) + \
+        #             int(dist_limits[0]/dist_bin_size[0]) + \
+        #             int((dist_limits[1] - dist_limits[0])/dist_bin_size[1])
+        #     else:
+        #         ddist = int(dist_limits[0]/dist_bin_size[0]) + \
+        #             int((dist_limits[1] - dist_limits[0])/dist_bin_size[1]) + \
+        #             int((dist_limits[2] - dist_limits[1])/dist_bin_size[2])
+        #     return ddist
 
-        output = np.zeros((args.goals_size + 1))
+        # output = np.zeros((args.goals_size + 1))
 
-        output[0] = int((relative_angle%360.)/5.)
-        output[1] = discretize(relative_dist)
-        output[2] = gt_action
+        # output[0] = int((relative_angle%360.)/5.)
+        # output[1] = discretize(relative_dist)
+        # output[2] = gt_action
 
-        self.relative_angle = relative_angle
+        # self.relative_angle = relative_angle
         # print("short term goal : ", output)
         if args.visualize or args.print_images:
             dump_dir = "{}/dump/{}/".format(args.dump_location,
@@ -593,7 +591,7 @@ class PointNavEnv(habitat.RLEnv):
                             dump_dir, self.rank, self.episode_no,
                             self.timestep, args.visualize,
                             args.print_images, args.vis_type)
-        return output
+        return [0.0, 0.0, 0.0]
 
     def get_optimal_gt_action(self):
         EPSILON = 1e-6
