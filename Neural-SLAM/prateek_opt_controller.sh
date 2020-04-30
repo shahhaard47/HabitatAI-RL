@@ -8,11 +8,12 @@ python pose_estimation_optimal.py \
     --num_processes 1 \
     --num_processes_per_gpu 12 \
     --task_config "/home/haardshah/habitat-submission/configs/train_pose_estimation.local.rgbd.yaml" \
-    --exp_name optimalController \
+    --exp_name test2 \
     --print_images 1 \
     --max_episode_length 1000 \
     --log_interval 100 \
-    --eval 1
+    --eval 1 \
+    --vis_type 2
 
 # EVAL
 # python pose_estimation_optimal.py \

@@ -326,25 +326,32 @@ def main():
                 #                     l_action = envs.get_optimal_gt_action()
 
             l_action = envs.get_optimal_gt_action().cpu()
+            # if step > 10:
+            #     l_action = torch.tensor([HabitatSimActions.STOP])
 
             
-            # ------------------------------------------------------------------
-            # Reinitialize variables when episode ends
-            # doubt what if episode ends before max_episode_length?
-            # maybe add (or done ) here?
-            if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
-                print("l_action", l_action)
-                init_map_and_pose()
-                del last_obs
-                last_obs = obs.detach()
-                print("Reinitialize since at end of episode ")
-                break
+            
             # ------------------------------------------------------------------
             # ------------------------------------------------------------------
             # Env step
             # print("stepping with action ", l_action)
             # try:
             obs, rew, done, infos = envs.step(l_action)
+
+
+            # ------------------------------------------------------------------
+            # Reinitialize variables when episode ends
+            # doubt what if episode ends before max_episode_length?
+            # maybe add (or done ) here?
+            if l_action == HabitatSimActions.STOP or step == args.max_episode_length - 1:
+                print("l_action", l_action)
+                init_map_and_pose()
+                del last_obs
+                last_obs = obs.detach()
+                print("Reinitialize since at end of episode ") 
+                obs, infos = envs.reset()
+
+
             # except:
             #     print("can't do that")
             #     print(l_action)
@@ -489,14 +496,14 @@ def main():
 
             # ------------------------------------------------------------------
             # Train Local Policy
-            # if (l_step + 1) % args.local_policy_update_freq == 0 \
-            #         and args.train_local:
-            #     local_optimizer.zero_grad()
-            #     policy_loss.backward()
-            #     local_optimizer.step()
-            #     l_action_losses.append(policy_loss.item())
-            #     policy_loss = 0
-            #     local_rec_states = local_rec_states.detach_()
+                # if (l_step + 1) % args.local_policy_update_freq == 0 \
+                #         and args.train_local:
+                #     local_optimizer.zero_grad()
+                #     policy_loss.backward()
+                #     local_optimizer.step()
+                #     l_action_losses.append(policy_loss.item())
+                #     policy_loss = 0
+                #     local_rec_states = local_rec_states.detach_()
             # ------------------------------------------------------------------
 
             # Finish Training
@@ -574,6 +581,9 @@ def main():
                 #                os.path.join(dump_dir,
                 #                             "periodic_{}.local".format(step)))
             # ------------------------------------------------------------------
+
+            if  l_action == HabitatSimActions.STOP:  # Last episode step
+                break
 
     # Print and save model performance numbers during evaluation
     if args.eval:
