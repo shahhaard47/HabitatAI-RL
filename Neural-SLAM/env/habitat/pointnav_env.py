@@ -580,7 +580,7 @@ class PointNavEnv(habitat.RLEnv):
                                 self.collison_map,
                                 self.visited_gt,
                                 self.visited_gt,
-                                (goal[0]+gx1, goal[1]+gy1),
+                                (goal_rc[0], goal_rc[1]),
                                 self.explored_map,
                                 self.explorable_map,
                                 self.map*self.explored_map)
