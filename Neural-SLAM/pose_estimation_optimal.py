@@ -179,11 +179,8 @@ def main():
             local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
             local_pose[e] = full_pose[e] - \
                             torch.from_numpy(origins[e]).to(device).float()
-
     init_map_and_pose()
     print("maps and poses intialized")
-
-    # show_gpu_usage()
 
     print("defining architecture")
     # slam
@@ -224,29 +221,28 @@ def main():
     #     if not args.train_local:
     #         l_policy.eval()
 
-    #     print("predicting first pose and initializing maps")
-    #     if not (args.use_gt_pose and args.use_gt_map):
-    #         # delta_pose is the expected change in pose when action is applied at
-    #         # the current pose in the absence of noise.
-    #         # initially no action is applied so this is zero.
-    #         delta_poses = torch.from_numpy(np.zeros(local_pose.shape)).float().to(device)
-    #         # initial estimate for local pose and local map from first observation,
-    #         # initialized (zero) pose and map
-    #         _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
-    #             nslam_module(obs, obs, delta_poses, local_map[:, 0, :, :],
-    #                          local_map[:, 1, :, :], local_pose)
-    #     if args.use_gt_pose:
-    #         # todo update local_pose here
-    #         full_pose = envs.get_gt_pose()
-    #         for e in range(num_scenes):
-    #             local_pose[e] = full_pose[e] - \
-    #                             torch.from_numpy(origins[e]).to(device).float()
-    #     if args.use_gt_map:
-    #         full_map = envs.get_gt_map()
-    #         for e in range(num_scenes):
-    #             local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
-    #     print("slam module returned pose and maps")
-    #     show_gpu_usage()
+    print("predicting first pose and initializing maps")
+    # if not (args.use_gt_pose and args.use_gt_map):
+        # delta_pose is the expected change in pose when action is applied at
+        # the current pose in the absence of noise.
+        # initially no action is applied so this is zero.
+    delta_poses = torch.from_numpy(np.zeros(local_pose.shape)).float().to(device)
+    # initial estimate for local pose and local map from first observation,
+    # initialized (zero) pose and map
+    _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
+        nslam_module(obs, obs, delta_poses, local_map[:, 0, :, :],
+                     local_map[:, 1, :, :], local_pose)            
+        # if args.use_gt_pose:
+        #     # todo update local_pose here
+        #     full_pose = envs.get_gt_pose()
+        #     for e in range(num_scenes):
+        #         local_pose[e] = full_pose[e] - \
+        #                         torch.from_numpy(origins[e]).to(device).float()
+        # if args.use_gt_map:
+        #     full_map = envs.get_gt_map()
+        #     for e in range(num_scenes):
+        #         local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
+    print("slam module returned pose and maps")
 
     # NOT NEEDED : 4/29 
     local_pose_np = local_pose.cpu().numpy()
@@ -258,18 +254,18 @@ def main():
         local_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
 
     #     # todo get goal from env here
-    #     global_goals = envs.get_goal_coords().int()
+    global_goals = envs.get_goal_coords().int()
 
-    #     # Compute planner inputs
-    #     planner_inputs = [{} for e in range(num_scenes)]
-    #     for e, p_input in enumerate(planner_inputs):
-    #         p_input['goal'] = global_goals[e].detach().cpu().numpy()
-    #         p_input['map_pred'] = local_map[e, 0, :, :].detach().cpu().numpy()
-    #         p_input['exp_pred'] = local_map[e, 1, :, :].detach().cpu().numpy()
-    #         p_input['pose_pred'] = planner_pose_inputs[e]
+    # Compute planner inputs
+    planner_inputs = [{} for e in range(num_scenes)]
+    for e, p_input in enumerate(planner_inputs):
+        p_input['goal'] = global_goals[e].detach().cpu().numpy()
+        p_input['map_pred'] = local_map[e, 0, :, :].detach().cpu().numpy()
+        p_input['exp_pred'] = local_map[e, 1, :, :].detach().cpu().numpy()
+        p_input['pose_pred'] = planner_pose_inputs[e]
 
     # Output stores local goals as well as the the ground-truth action
-    #     planner_out = envs.get_short_term_goal(planner_inputs)
+    planner_out = envs.get_short_term_goal(planner_inputs)
     # planner output contains:
     # Distance to short term goal - positive discretized number
     # angle to short term goal -  angle -180 to 180 but in buckets of 5 degrees so multiply by 5 to ge true angle
@@ -430,62 +426,13 @@ def main():
                                 int(c * 100.0 / args.map_resolution)]
                 local_map[e, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1.
 
-            # ------------------------------------------------------------------
-
-            # ------------------------------------------------------------------
-            # Global Policy
-                # if l_step == args.num_local_steps - 1:
-                #     # For every global step, update the full and local maps
-                #     for e in range(num_scenes):
-                #         full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]] = \
-                #             local_map[e]
-                #         full_pose[e] = local_pose[e] + \
-                #                        torch.from_numpy(origins[e]).to(device).float()
-                #
-                #         full_pose_np = full_pose[e].cpu().numpy()
-                #         r, c = full_pose_np[1], full_pose_np[0]
-                #         loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
-                #                         int(c * 100.0 / args.map_resolution)]
-                #
-                #         lmb[e] = get_local_map_boundaries((loc_r, loc_c),
-                #                                           (local_w, local_h),
-                #                                           (full_w, full_h))
-                #
-                #         planner_pose_inputs[e, 3:] = lmb[e]
-                #         origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
-                #                       lmb[e][0] * args.map_resolution / 100.0, 0.]
-                #
-                #         local_map[e] = full_map[e, :,
-                #                        lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
-                #         local_pose[e] = full_pose[e] - \
-                #                         torch.from_numpy(origins[e]).to(device).float()
-                #
-                #     local_pose_np = local_pose.cpu().numpy()
-                #
-                #     if False:
-                #         for i in range(4):
-                #             ax[i].clear()
-                #             ax[i].set_yticks([])
-                #             ax[i].set_xticks([])
-                #             ax[i].set_yticklabels([])
-                #             ax[i].set_xticklabels([])
-                #             ax[i].imshow(global_input.cpu().numpy()[0, 4 + i])
-                #         plt.gcf().canvas.flush_events()
-                #         # plt.pause(0.1)
-                #         fig.canvas.start_event_loop(0.001)
-                #         plt.gcf().canvas.flush_events()
-                #
-                # # ------------------------------------------------------------------
-                # # Get short term goal
-                # planner_inputs = [{} for e in range(num_scenes)]
-                # for e, p_input in enumerate(planner_inputs):
-                #     p_input['map_pred'] = local_map[e, 0, :, :].cpu().numpy()
-                #     p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
-                #     p_input['pose_pred'] = planner_pose_inputs[e]
-                #     p_input['goal'] = global_goals[e].cpu().numpy()
-                #
-                # planner_out = envs.get_short_term_goal(planner_inputs)
-                # ------------------------------------------------------------------
+            planner_inputs = [{} for e in range(num_scenes)]
+            for e, p_input in enumerate(planner_inputs):
+                p_input['map_pred'] = local_map[e, 0, :, :].cpu().numpy()
+                p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
+                p_input['pose_pred'] = planner_pose_inputs[e]
+                p_input['goal'] = global_goals[e].cpu().numpy()
+            planner_out = envs.get_short_term_goal(planner_inputs)
 
             ### TRAINING
             torch.set_grad_enabled(True)
