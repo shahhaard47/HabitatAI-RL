@@ -863,5 +863,5 @@ class PointNavEnv(habitat.RLEnv):
             gt_action = HabitatSimActions.TURN_LEFT
         else:
             gt_action = HabitatSimActions.MOVE_FORWARD
-        print("gt action ", gt_action)
+        # print("gt action ", gt_action)
         return gt_action

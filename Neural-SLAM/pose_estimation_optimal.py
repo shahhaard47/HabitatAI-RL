@@ -333,10 +333,10 @@ def main():
             # doubt what if episode ends before max_episode_length?
             # maybe add (or done ) here?
             if step == args.max_episode_length - 1 or l_action == HabitatSimActions.STOP:  # Last episode step
+                print("l_action", l_action)
                 init_map_and_pose()
                 del last_obs
                 last_obs = obs.detach()
-                # total_num_steps = 0
                 print("Reinitialize since at end of episode ")
                 break
             # ------------------------------------------------------------------
