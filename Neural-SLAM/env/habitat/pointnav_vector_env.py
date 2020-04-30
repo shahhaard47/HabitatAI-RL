@@ -35,6 +35,7 @@ GET_SIM_POSE = "get_sim_pose"
 GET_GT_POSE = "get_gt_pose"
 GET_GOAL_COORDS = "get_goal_coords"
 GET_OPTIMAL_GT_ACTION = "get_optimal_gt_action"
+GET_OPTIMAL_ACTION = "get_optimal_action"
 
 def _make_env_fn(
     config: Config, dataset: Optional[habitat.Dataset] = None, rank: int = 0
@@ -222,6 +223,9 @@ class VectorEnv:
                     connection_write_fn(pose)
                 elif command == GET_OPTIMAL_GT_ACTION:
                     action = env.get_optimal_gt_action()
+                    connection_write_fn(action)
+                elif command == GET_OPTIMAL_GT_ACTION:
+                    action = env.get_optimal_gt_action(data)
                     connection_write_fn(action)
                 else:
                     raise NotImplementedError
@@ -549,6 +553,17 @@ class VectorEnv:
             results.append(read_fn())
         self._is_waiting = False
         return results
+
+    def get_optimal_action(self, inputs):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_OPTIMAL_ACTION, inputs[e]))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return np.stack(results)
 
     def _assert_not_closed(self):
         assert not self._is_closed, "Trying to operate on a SubprocVecEnv after calling close()"

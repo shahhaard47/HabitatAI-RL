@@ -76,3 +76,7 @@ class VecPyTorch():
     def get_optimal_gt_action(self):
         action = self.venv.get_optimal_gt_action()
         return torch.tensor(action).int().to(self.device)
+
+    def get_optimal_action(self):
+        action = self.venv.get_optimal_action()
+        return torch.tensor(action).int().to(self.device)

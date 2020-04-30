@@ -366,7 +366,7 @@ class PointNavEnv(habitat.RLEnv):
         params = {}
         params['frame_width'] = self.args.env_frame_width
         params['frame_height'] = self.args.env_frame_height
-        params['fov'] =  self.args.hfov
+        params['fov'] = self.args.hfov
         params['resolution'] = self.args.map_resolution
         params['map_size_cm'] = self.args.map_size_cm
         params['agent_min_z'] = 25
@@ -416,6 +416,38 @@ class PointNavEnv(habitat.RLEnv):
         transformed_goal = np.matmul(agent_R, np.array(goal).transpose() - agent_T)
         goal2d = np.array([-transformed_goal[2], -transformed_goal[0]])
         return goal2d
+
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(roll / 2) * np.sin(pitch / 2) * np.sin(
+            yaw / 2)
+        qy = np.cos(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.cos(pitch / 2) * np.sin(
+            yaw / 2)
+        qz = np.cos(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2) - np.sin(roll / 2) * np.sin(pitch / 2) * np.cos(
+            yaw / 2)
+        qw = np.cos(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.sin(pitch / 2) * np.sin(
+            yaw / 2)
+        return np.array([qx, qy, qz, qw])
+
+    def ans_frame_to_hab(self, start, pose):
+
+        # Agent's state at starting point in the Habitat Frame
+        hab_quat_start = super().habitat_env.sim.get_agent_state(0).rotation
+        R = quaternion.as_rotation_matrix(hab_quat_start)
+        hab_pos_start = super().habitat_env.sim.get_agent_state(0)
+        delta_pose = np.array([pose[0] - start[0], pose[1] - start[1], 0])
+
+        # Transforming Position to Habitat Frame
+        Z, X, Y = np.matmul(R, delta_pose)
+        Z = -Z
+        X = -X
+        transformed_position = np.array([X, Y, Z]) + hab_pos_start.position
+
+        # Transforming Orientation to Habitat Frame
+        orientation = np.array([0, 0, pose[2]])
+        trans = np.array([np.pi, np.pi/2, -np.pi/2])
+        orientation = np.matmul(self.euler_to_quaternion(orientation), hab_quat_start)
+        transformed_orientation = np.matmul(self.euler_to_quaternion(trans), orientation)
+        return transformed_position, transformed_orientation
 
     def get_gt_pose_change(self):
         curr_sim_pose = self.get_sim_location()
@@ -663,6 +695,113 @@ class PointNavEnv(habitat.RLEnv):
         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
         return HabitatSimActions.STOP
 
+    def get_optimal_action(self, start, pose_estimate):
+        EPSILON = 1e-6
+        config_env = super().habitat_env._config
+        goal_pos = super().habitat_env.current_episode.goals[0].position
+        goal_radius = config_env.TASK.SUCCESS_DISTANCE
+
+        current_state = super().habitat_env.sim.get_agent_state()
+        position_estimate, rotation_estimate = self.ans_frame_to_hab(start, pose_estimate)
+
+        if (super().habitat_env.sim.geodesic_distance(
+                position_estimate, goal_pos
+        )
+                <= goal_radius
+        ):
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+            return HabitatSimActions.STOP
+        points = super().habitat_env.sim.get_straight_shortest_path_points(
+            position_estimate, goal_pos
+        )
+        # Add a little offset as things get weird if
+        # points[1] - points[0] is anti-parallel with forward
+        if len(points) < 2:
+            max_grad_dir = None
+        else:
+            max_grad_dir = quaternion_from_two_vectors(
+                super().habitat_env.sim.forward_vector,
+                points[1]
+                - points[0]
+                + EPSILON
+                * np.cross(super().habitat_env.sim.up_vector, super().habitat_env.sim.forward_vector),
+            )
+            max_grad_dir.x = 0
+            max_grad_dir = np.normalized(max_grad_dir)
+        if max_grad_dir is None:
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+            return HabitatSimActions.MOVE_FORWARD
+        else:
+            alpha = angle_between_quaternions(max_grad_dir, rotation_estimate)
+            if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
+                # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+                return HabitatSimActions.MOVE_FORWARD
+            else:
+                if (angle_between_quaternions(
+                            max_grad_dir, rotation_estimate
+                        )
+                        < alpha):
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+                    return HabitatSimActions.TURN_LEFT
+                else:
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+                    return HabitatSimActions.TURN_RIGHT
+        # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+        return HabitatSimActions.STOP
+
+    # def get_greedy_action(self, start, pose_estimate):
+    #     EPSILON = 1e-6
+    #     config_env = super().habitat_env._config
+    #     goal_pos = super().habitat_env.current_episode.goals[0].position
+    #     goal_radius = config_env.TASK.SUCCESS_DISTANCE
+    #
+    #     current_state = super().habitat_env.sim.get_agent_state()
+    #     position_estimate, rotation_estimate = self.ans_frame_to_hab(start, pose_estimate)
+    #
+    #     if (super().habitat_env.sim.geodesic_distance(
+    #             position_estimate, goal_pos
+    #     )
+    #             <= goal_radius
+    #     ):
+    #         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+    #         return HabitatSimActions.STOP
+    #     points = super().habitat_env.sim.get_straight_shortest_path_points(
+    #         position_estimate, goal_pos
+    #     )
+    #     # Add a little offset as things get weird if
+    #     # points[1] - points[0] is anti-parallel with forward
+    #     if len(points) < 2:
+    #         max_grad_dir = None
+    #     else:
+    #         max_grad_dir = quaternion_from_two_vectors(
+    #             super().habitat_env.sim.forward_vector,
+    #             points[1]
+    #             - points[0]
+    #             + EPSILON
+    #             * np.cross(super().habitat_env.sim.up_vector, super().habitat_env.sim.forward_vector),
+    #         )
+    #         max_grad_dir.x = 0
+    #         max_grad_dir = np.normalized(max_grad_dir)
+    #     if max_grad_dir is None:
+    #         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+    #         return HabitatSimActions.MOVE_FORWARD
+    #     else:
+    #         alpha = angle_between_quaternions(max_grad_dir, rotation_estimate)
+    #         if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
+    #             # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+    #             return HabitatSimActions.MOVE_FORWARD
+    #         else:
+    #             if (angle_between_quaternions(
+    #                         max_grad_dir, rotation_estimate
+    #                     )
+    #                     < alpha):
+    #                 # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+    #                 return HabitatSimActions.TURN_LEFT
+    #             else:
+    #                 # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+    #                 return HabitatSimActions.TURN_RIGHT
+    #     # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+    #     return HabitatSimActions.STOP
 
     def _get_gt_map(self, full_map_size):
         self.scene_name = self.habitat_env.sim.config.SCENE
