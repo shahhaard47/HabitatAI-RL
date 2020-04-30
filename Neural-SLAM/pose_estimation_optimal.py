@@ -150,7 +150,7 @@ def main():
     ### Planner pose inputs has 7 dimensions
     ### 1-3 store continuous global agent location
     ### 4-7 store local map boundaries
-    # planner_pose_inputs = np.zeros((num_scenes, 7))
+    planner_pose_inputs = np.zeros((num_scenes, 7))
 
     # show_gpu_usage()
 
@@ -160,7 +160,7 @@ def main():
         full_pose[:, :2] = args.map_size_cm / 100.0 / 2.0
 
         full_pose_np = full_pose.cpu().numpy()
-        # planner_pose_inputs[:, :3] = full_pose_np
+        planner_pose_inputs[:, :3] = full_pose_np
         for e in range(num_scenes):
             r, c = full_pose_np[e, 1], full_pose_np[e, 0]
             loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
@@ -172,7 +172,7 @@ def main():
                                               (local_w, local_h),
                                               (full_w, full_h))
 
-            # planner_pose_inputs[e, 3:] = lmb[e]
+            planner_pose_inputs[e, 3:] = lmb[e]
             origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
                           lmb[e][0] * args.map_resolution / 100.0, 0.]
         for e in range(num_scenes):
@@ -418,7 +418,7 @@ def main():
             #     print("updated local map from gt")
 
             local_pose_np = local_pose.cpu().numpy()
-            # planner_pose_inputs[:, :3] = local_pose_np + origins
+            planner_pose_inputs[:, :3] = local_pose_np + origins
             local_map[:, 2, :, :].fill_(0.)  # Resetting current location channel
             for e in range(num_scenes):
                 r, c = local_pose_np[e, 1], local_pose_np[e, 0]
