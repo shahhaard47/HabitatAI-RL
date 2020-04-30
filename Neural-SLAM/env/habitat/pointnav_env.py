@@ -437,23 +437,20 @@ class PointNavEnv(habitat.RLEnv):
 
     def ans_frame_to_hab(self, start, pose):
 
-        # Agent's state at starting point in the Habitat Frame
+        # Transforming Position to Habitat Frame
+        Z, X, Y = pose[0] - start[0], pose[1] - start[1], 0
+        Z = -Z
+        X = -X
+        position = np.array([X,Y,Z])
         hab_quat_start = super().habitat_env.sim.get_agent_state(0).rotation
         R = quaternion.as_rotation_matrix(hab_quat_start)
         hab_pos_start = super().habitat_env.sim.get_agent_state(0)
-        delta_pose = np.array([pose[0] - start[0], pose[1] - start[1], 0])
-
-        # Transforming Position to Habitat Frame
-        Z, X, Y = np.matmul(R, delta_pose)
-        Z = -Z
-        X = -X
-        transformed_position = np.array([X, Y, Z]) + hab_pos_start.position
+        transformed_position = np.matmul(R, position) + hab_pos_start.position
 
         # Transforming Orientation to Habitat Frame
-        orientation = np.array([0, 0, pose[2]])
-        trans = np.array([np.pi, np.pi/2, -np.pi/2])
-        orientation = np.matmul(self.euler_to_quaternion(orientation), hab_quat_start)
-        transformed_orientation = np.matmul(self.euler_to_quaternion(trans), orientation)
+        orientation = quaternion.as_rotation_matrix(np.array(self.euler_to_quaternion(0, -np.deg2rad(pose[2]), 0)))
+        rotated_orientation = np.matmul(hab_quat_start, orientation)
+        transformed_orientation = self.euler_to_quaternion(rotated_orientation[0], rotated_orientation[1], rotated_orientation[2])
         return transformed_position, transformed_orientation
 
     def get_gt_pose_change(self):
