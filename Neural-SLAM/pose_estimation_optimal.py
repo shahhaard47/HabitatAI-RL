@@ -22,6 +22,7 @@ import sys
 import matplotlib
 
 from tqdm import tqdm
+from datetime import datetime
 
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
@@ -286,6 +287,7 @@ def main():
         # if itr_counter >= 20:
         #     print("DONE WE FIXED IT")
         #     die()
+        # for step in range(args.max_episode_length):
         step_bar = tqdm(range(args.max_episode_length))
         for step in step_bar:
             # print("------------------------------------------------------")
@@ -361,8 +363,7 @@ def main():
             #     print("Reinitialize since at end of episode ")
             #     break
             # step_bar.set_description("rew, done, info-sensor_pose, pose_err (stepping) {}, {}, {}, {}".format(rew, done, infos[0]['sensor_pose'], infos[0]['pose_err']))
-            if total_num_steps % args.log_interval == 0:
-
+            if total_num_steps % args.log_interval == 0 and False:
                 print("rew, done, info-sensor_pose, pose_err after stepping ", rew, done, infos[0]['sensor_pose'],
                   infos[0]['pose_err'])
             # l_masks = torch.FloatTensor([0 if x else 1
@@ -512,12 +513,14 @@ def main():
 
             # ------------------------------------------------------------------
             # Logging
+            gettime = lambda: str(datetime.now()).split('.')[0]
             if total_num_steps % args.log_interval == 0:
                 end = time.time()
                 time_elapsed = time.gmtime(end - start)
                 log = " ".join([
                     "Time: {0:0=2d}d".format(time_elapsed.tm_mday - 1),
                     "{},".format(time.strftime("%Hh %Mm %Ss", time_elapsed)),
+                    gettime(),
                     "num timesteps {},".format(total_num_steps *
                                                num_scenes),
                     "FPS {},".format(int(total_num_steps * num_scenes \

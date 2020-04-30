@@ -35,6 +35,7 @@ from habitat.utils.geometry_utils import (
     )
 
 from model import get_grid
+from datetime import datetime
 
 
 def _preprocess_depth(depth):
@@ -74,6 +75,8 @@ class PointNavEnv(habitat.RLEnv):
                                       interpolation = Image.NEAREST)])
         self.scene_name = None
         self.maps_dict = {}
+
+        self.total_num_steps = 0 # from pose_estimation_optimal synchronized logging purposes
 
     # shuffle the order of episodes once in a while
     def randomize_env(self):
@@ -580,7 +583,7 @@ class PointNavEnv(habitat.RLEnv):
                                 self.collison_map,
                                 self.visited_gt,
                                 self.visited_gt,
-                                (goal_rc[0], goal_rc[1]),
+                                (self.goal_rc[0], self.goal_rc[1]),
                                 self.explored_map,
                                 self.explorable_map,
                                 self.map*self.explored_map)
@@ -593,7 +596,7 @@ class PointNavEnv(habitat.RLEnv):
                             args.print_images, args.vis_type)
         return [0.0, 0.0, 0.0]
 
-    def get_optimal_gt_action(self):
+    def get_optimal_gt_action(self, debug=False):
         EPSILON = 1e-6
         config_env = super().habitat_env._config
         goal_pos = super().habitat_env.current_episode.goals[0].position
@@ -601,10 +604,21 @@ class PointNavEnv(habitat.RLEnv):
         current_state = super().habitat_env.sim.get_agent_state()
 
         # return HabitatSimActions.STOP
+        log_bool = self.total_num_steps % self.args.log_interval == 0
+        self.total_num_steps += 1
+        # add date
+        getdate = lambda: str(datetime.now()).split('.')[0]
+
+        # set true for debuging
+        if debug: 
+            log = lambda w, x, y, z: print("\n{}\nGoal Position:{}\nCurrent Position:{}\nOptimal Action: {}\nGeodistic distance to goal: {}".format(getdate(), w, x, y, z))
+        else:
+            log = lambda w, x, y, z: print("\n{}\nGeodistic Dist: {}".format(getdate(), z))
 
         geoDist = super().habitat_env.sim.geodesic_distance(current_state.position, goal_pos)
         if ( geoDist <= goal_radius ):
-            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+            if log_bool: log(goal_pos, current_state.position, 'STOP', geoDist)
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
             return HabitatSimActions.STOP
         points = super().habitat_env.sim.get_straight_shortest_path_points(
             current_state.position, goal_pos
@@ -624,24 +638,29 @@ class PointNavEnv(habitat.RLEnv):
             max_grad_dir.x = 0
             max_grad_dir = np.normalized(max_grad_dir)
         if max_grad_dir is None:
-            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+            if log_bool: log(goal_pos, current_state.position, 'FORWARD', geoDist)
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
             return HabitatSimActions.MOVE_FORWARD
         else:
             alpha = angle_between_quaternions(max_grad_dir, current_state.rotation)
             if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
-                print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+                if log_bool: log(goal_pos, current_state.position, 'FORWARD', geoDist)
+                # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
                 return HabitatSimActions.MOVE_FORWARD
             else:
                 if (angle_between_quaternions(
                             max_grad_dir, current_state.rotation
                         )
                         < alpha):
-                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+                    if log_bool: log(goal_pos, current_state.position, 'LEFT', geoDist)
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
                     return HabitatSimActions.TURN_LEFT
                 else:
-                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+                    if log_bool: log(goal_pos, current_state.position, 'RIGHT', geoDist)
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
                     return HabitatSimActions.TURN_RIGHT
-        print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+        if log_bool: log(goal_pos, current_state.position, 'STOP', geoDist)
+        # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
         return HabitatSimActions.STOP
 
 
