@@ -635,7 +635,8 @@ class PointNavEnv(habitat.RLEnv):
                                 dump_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type)
-        if np_vis_img is not None: self.numpy_visualizations.append(np_vis_img)
+        # if np_vis_img is not None: self.numpy_visualizations.append(np_vis_img)
+        # print("vis length", len(self.numpy_visualizations))
         return [0.0, 0.0, 0.0]
 
     def get_optimal_gt_action(self, debug=False):

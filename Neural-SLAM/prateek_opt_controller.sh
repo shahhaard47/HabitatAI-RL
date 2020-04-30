@@ -1,20 +1,18 @@
 # Command to run pose_estimation_optimal.py (contains Prateek's shortest path follower)
 
 # TRAIN
-
-# CHANGE!!! freq and max_ep_length
 python pose_estimation_optimal.py \
     --split train_small \
     --train_slam 1 \
-    --load_slam tmp/models/FinalTrainExp/model_best.slam \
+    --load_slam tmp/models/FinalTrainExp3/model_best.slam \
     --num_processes 1 \
-    --num_processes_per_gpu 12 \
+    --num_processes_per_gpu 14 \
     --task_config "/home/haardshah/habitat-submission/configs/train_pose_estimation.local.rgbd.yaml" \
-    --exp_name FinalTrainExp \
+    --exp_name FinalTrainExp3 \
     --print_images 1 \
     --print_frequency 25 \
-    --max_episode_length 50 \
-    --log_interval 5 \
+    --max_episode_length 1000 \
+    --log_interval 50 \
     --eval 0 \
     --vis_type 2 
 

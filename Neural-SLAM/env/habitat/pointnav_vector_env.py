@@ -36,6 +36,8 @@ GET_GT_POSE = "get_gt_pose"
 GET_GOAL_COORDS = "get_goal_coords"
 GET_OPTIMAL_GT_ACTION = "get_optimal_gt_action"
 GET_OPTIMAL_ACTION = "get_optimal_action"
+GET_NUMPY_VIS = "get_numpy_vis"
+RESET_NUMPY_VIS = "reset_numpy_vis"
 
 def _make_env_fn(
     config: Config, dataset: Optional[habitat.Dataset] = None, rank: int = 0
@@ -227,6 +229,12 @@ class VectorEnv:
                 elif command == GET_OPTIMAL_GT_ACTION:
                     action = env.get_optimal_gt_action(data)
                     connection_write_fn(action)
+                elif command == GET_NUMPY_VIS:
+                    action = env.get_numpy_vis()
+                    connection_write_fn(action)
+                elif command == RESET_NUMPY_VIS:
+                    env.reset_numpy_vis()
+                    
                 else:
                     raise NotImplementedError
 
@@ -553,6 +561,28 @@ class VectorEnv:
             results.append(read_fn())
         self._is_waiting = False
         return results
+
+    def get_numpy_vis(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_NUMPY_VIS, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return results
+
+    def reset_numpy_vis(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((RESET_NUMPY_VIS, None))
+        # results = []
+        # for read_fn in self._connection_read_fns:
+        #     results.append(read_fn())
+        # self._is_waiting = False
+        # return results
 
     def get_optimal_action(self, inputs):
         self._assert_not_closed()
