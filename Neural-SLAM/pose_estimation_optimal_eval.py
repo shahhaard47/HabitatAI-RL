@@ -428,6 +428,39 @@ def main():
                 #     for e in range(num_scenes):
                 #         local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
                 #     print("updated local map from gt")
+                local_pose_np = local_pose.cpu().numpy()
+                planner_pose_inputs[:, :3] = local_pose_np + origins
+                local_map[:, 2, :, :].fill_(0.)  # Resetting current location channel
+                for e in range(num_scenes):
+                    r, c = local_pose_np[e, 1], local_pose_np[e, 0]
+                    loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
+                                    int(c * 100.0 / args.map_resolution)]
+                    local_map[e, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1.
+                if l_step == args.num_local_steps - 1:
+                    # For every global step, update the full and local maps
+                    for e in range(num_scenes):
+                        full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]] = \
+                            local_map[e]
+                        full_pose[e] = local_pose[e] + \
+                                       torch.from_numpy(origins[e]).to(device).float()
+
+                        full_pose_np = full_pose[e].cpu().numpy()
+                        r, c = full_pose_np[1], full_pose_np[0]
+                        loc_r, loc_c = [int(r * 100.0 / args.map_resolution),
+                                        int(c * 100.0 / args.map_resolution)]
+
+                        lmb[e] = get_local_map_boundaries((loc_r, loc_c),
+                                                          (local_w, local_h),
+                                                          (full_w, full_h))
+
+                        planner_pose_inputs[e, 3:] = lmb[e]
+                        origins[e] = [lmb[e][2] * args.map_resolution / 100.0,
+                                      lmb[e][0] * args.map_resolution / 100.0, 0.]
+
+                        local_map[e] = full_map[e, :,
+                                       lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
+                        local_pose[e] = full_pose[e] - \
+                                        torch.from_numpy(origins[e]).to(device).float()
 
                 local_pose_np = local_pose.cpu().numpy()
                 planner_pose_inputs[:, :3] = local_pose_np + origins
