@@ -602,9 +602,12 @@ class PointNavEnv(habitat.RLEnv):
 
         # return HabitatSimActions.STOP
 
-        geoDist = super().habitat_env.sim.geodesic_distance(current_state.position, goal_pos)
-        if ( dist <= goal_radius ):
-            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+        if (super().habitat_env.sim.geodesic_distance(
+                current_state.position, goal_pos
+        )
+                <= goal_radius
+        ):
+            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
             return HabitatSimActions.STOP
         points = super().habitat_env.sim.get_straight_shortest_path_points(
             current_state.position, goal_pos
@@ -624,24 +627,24 @@ class PointNavEnv(habitat.RLEnv):
             max_grad_dir.x = 0
             max_grad_dir = np.normalized(max_grad_dir)
         if max_grad_dir is None:
-            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
             return HabitatSimActions.MOVE_FORWARD
         else:
             alpha = angle_between_quaternions(max_grad_dir, current_state.rotation)
             if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
-                print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+                print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
                 return HabitatSimActions.MOVE_FORWARD
             else:
                 if (angle_between_quaternions(
                             max_grad_dir, current_state.rotation
                         )
                         < alpha):
-                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
                     return HabitatSimActions.TURN_LEFT
                 else:
-                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+                    print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
                     return HabitatSimActions.TURN_RIGHT
-        print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+        print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
         return HabitatSimActions.STOP
 
 
