@@ -602,12 +602,9 @@ class PointNavEnv(habitat.RLEnv):
 
         # return HabitatSimActions.STOP
 
-        if (super().habitat_env.sim.geodesic_distance(
-                current_state.position, goal_pos
-        )
-                <= goal_radius
-        ):
-            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+        geoDist = super().habitat_env.sim.geodesic_distance(current_state.position, goal_pos)
+        if ( geoDist <= goal_radius ):
+            print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
             return HabitatSimActions.STOP
         points = super().habitat_env.sim.get_straight_shortest_path_points(
             current_state.position, goal_pos
