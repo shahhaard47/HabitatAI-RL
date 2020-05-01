@@ -7,11 +7,14 @@ data/
 pretrained_models/
 tmp/
 ppoBaseline/habitat-api
-rgbd.pth
+*.pth
 train.log
 Archive.zip
 tb/
 video_dir
 habitat-api/
+habitat-api-old/
 tensorboard/
 habitat-challenge
+*.zip
+*.slam

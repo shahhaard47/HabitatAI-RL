@@ -26,25 +26,25 @@ Github Repo: https://github.com/akshay-krishnan/habitat-submission.git
 
 We do this by first learning an accuracte pose estimator using classical shortest path follower algorithm (TODO name)
 
+> NOTE: more information about options to pass can be found by running `python pose_estimation_optimal.py --help`
+
 ### To train pose estimator
 Code for this can be found here: [Neural-SLAM/pose_estimation_optimal](Neural-SLAM/pose_estimation_optimal)
 
 ```
 cd Neural-SLAM
 python pose_estimation_optimal.py \
-    --split train_small \
+    --eval 0  --split train_small \
     --train_slam 1 \
-    --load_slam tmp/models/FinalTrainExp3/model_best.slam \
+    --load_slam <path/to/best>/model_best.slam \
     --num_processes 1 \
     --num_processes_per_gpu 14 \
     --task_config "../configs/train_pose_estimation.local.rgbd.yaml" \
-    --exp_name FinalTrainExp3 \
-    --print_images 1 \
+    --exp_name TrainPose1 \
+    --print_images 1  --vis_type 2 --d outputs \
     --print_frequency 25 \
     --max_episode_length 1000 \
     --log_interval 50 \
-    --eval 0 \
-    --vis_type 2
 ```
 
 ### To evaluate pose estimator
@@ -53,19 +53,17 @@ Code for this can be found here: [Neural-SLAM/pose_estimation_optimal_eval.py](N
 ```
 cd Neural-SLAM;
 python pose_estimation_optimal.py \
-    --split train_small \
+    --eval 1  --split val \
     --train_slam 0 \
-    --load_slam tmp/models/FinalTrainExp3/model_best.slam \
+    --load_slam <path/to/best>/model_best.slam \
     --num_processes 1 \
     --num_processes_per_gpu 14 \
     --task_config "../configs/train_pose_estimation.local.rgbd.yaml" \
-    --exp_name FinalTrainExp3 \
-    --print_images 1 \
-    --print_frequency 25 \
+    --exp_name EvalPose1 \
+    --print_images 1 --vis_type 2 --d outputs \
+    --print_frequency 10 \
     --max_episode_length 1000 \
     --log_interval 50 \
-    --eval 1 \
-    --vis_type 2
 ```
 
 # Experiments
@@ -73,18 +71,21 @@ python pose_estimation_optimal.py \
 ## End-to-end PPO
 > Baseline PPO with noisy environment
 
-Find code `ppoBaseline/`
+Code can be found here [`ppoBaseline/`](`ppoBaseline/`)
 
 ### To Run it
 
-- Modify relative paths inside
+> Please modify absolute paths to data inside `../configs/train_pose_estimation.local.rgbd.yaml`
+
 ```
 # To train
 python -u run.py \
     --exp-config ppo_pointnav_example.yaml \
-    --run-type train
+    --run-type train \
+    BASE_TASK_CONFIG_PATH ../configs/train_pose_estimation.local.rgbd.yaml
 # To validate
-python -u habitat-api/habitat_baselines/run.py \
-    --exp-config habitat-api/habitat_baselines/config/pointnav/ppo_pointnav_example.yaml \
+python -u run.py \
+    --exp-config ppo_pointnav_example.yaml \
     --run-type eval
+    BASE_TASK_CONFIG_PATH ../configs/train_pose_estimation.local.rgbd.yaml
 ```

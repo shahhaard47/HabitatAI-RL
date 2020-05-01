@@ -1,0 +1,8 @@
+PPO End-to-end, Train stats
+mean_DTG,6.9195904688946435
+num_steps,100352
+train_secs,119352.96946263313
+train_days,1.381400109521217
+train_hours,33.153602628509205
+mean_SPL,0
+mean_success,0

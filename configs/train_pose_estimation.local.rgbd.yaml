@@ -49,5 +49,5 @@ TASK:
 DATASET:
   TYPE: PointNav-v1
   SPLIT: train_small
-  DATA_PATH: "/home/haardshah/habitat-submission/Neural-SLAM/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
-  SCENES_DIR: "/home/haardshah/habitat-submission/Neural-SLAM/data/scene_datasets"
+  DATA_PATH: "<absolute/path/to/dataset>/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
+  SCENES_DIR: "<absolute/path/to/dataset>/data/scene_datasets"
