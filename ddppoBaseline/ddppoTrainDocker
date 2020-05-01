@@ -1,0 +1,19 @@
+FROM fairhabitat/habitat:v1
+
+WORKDIR /home
+
+# Setup habitat-sim
+RUN git clone --branch stable https://github.com/facebookresearch/habitat-sim.git
+RUN /bin/bash -c ". activate habitat; cd habitat-sim; pip install -r requirements.txt; python setup.py build_ext --parallel 2 install --headless"
+
+# Install challenge specific habitat-api
+RUN git clone --branch stable https://github.com/facebookresearch/habitat-api.git
+RUN /bin/bash -c ". activate habitat; cd habitat-api; pip install -r requirements.txt; python setup.py develop --all"
+
+RUN /bin/bash -c ". activate habitat; cd /home/; git clone --branch habitat-challenge-2020 https://github.com/facebookresearch/habitat-api.git; cd /home/habitat-api; pip install -r requirements.txt; python setup.py develop --all;"
+
+WORKDIR /ddppo
+
+COPY src/ .
+
+CMD ["python", "src/run.py", "--exp-config", "src/configs/ddppo_pointnav.yaml", "--run-type", "train"]

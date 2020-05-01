@@ -12,8 +12,6 @@ import numpy as np
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.config.default import get_config
 
-# import pdb; pdb.set_trace()
-
 # use ppo_pointnav_example.yaml
 """
 # SETUP
