@@ -14,6 +14,7 @@ Github Repo: https://github.com/akshay-krishnan/habitat-submission.git
 - [Habitat-Sim](https://github.com/facebookresearch/habitat-sim)
 - [Habitat-API](https://github.com/facebookresearch/habitat-api)
 
+
 ## Data Setup
 - Follow Habitat instruction to download gibson dataset
 - Note the `data/` location
@@ -27,7 +28,7 @@ Github Repo: https://github.com/akshay-krishnan/habitat-submission.git
 - Navigate without GPS/Compass sensor
 - Make agent robust to actuation, RGB, and Depth sensor noises
 
-## Contribution - Learn pose estimator explicitely
+## Contribution - Learn pose estimator explicitly
 
 We do this by first learning an accuracte pose estimator using classical shortest path follower algorithm (TODO name)
 
@@ -35,9 +36,10 @@ We do this by first learning an accuracte pose estimator using classical shortes
 
 ### To train pose estimator
 Code for this can be found here: [Neural-SLAM/pose_estimation_optimal](Neural-SLAM/pose_estimation_optimal)
-
+Install Habitat Sim(branch stable) and Habitat API(branch habitat-challenge-2020) 
 ```
 cd Neural-SLAM
+sudo ln -s /path/to/data data
 python pose_estimation_optimal.py \
     --eval 0  --split train_small \
     --train_slam 1 \
