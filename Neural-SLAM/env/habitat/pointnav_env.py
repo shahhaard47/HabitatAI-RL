@@ -35,6 +35,7 @@ from habitat.utils.geometry_utils import (
     )
 
 from model import get_grid
+from datetime import datetime
 
 
 def _preprocess_depth(depth):
@@ -74,6 +75,15 @@ class PointNavEnv(habitat.RLEnv):
                                       interpolation = Image.NEAREST)])
         self.scene_name = None
         self.maps_dict = {}
+
+        self.total_num_steps = 0 # from pose_estimation_optimal synchronized logging purposes
+        self.numpy_visualizations = [] # for tb visualizations
+    
+    def get_numpy_vis(self):
+        return self.numpy_visualizations
+
+    def reset_numpy_vis(self):
+        self.numpy_visualizations = []
 
     # shuffle the order of episodes once in a while
     def randomize_env(self):
@@ -227,10 +237,10 @@ class PointNavEnv(habitat.RLEnv):
         self._previous_action = action
 
         # get data from simulator
-        try:
-            obs, rew, done, info = super().step(action)
-        except:
-            return
+        # try:
+        obs, rew, done, info = super().step(action)
+        # except:
+            # return
 
         # Preprocess observations - same as in reset
         rgb = obs['rgb'].astype(np.uint8)
@@ -363,7 +373,7 @@ class PointNavEnv(habitat.RLEnv):
         params = {}
         params['frame_width'] = self.args.env_frame_width
         params['frame_height'] = self.args.env_frame_height
-        params['fov'] =  self.args.hfov
+        params['fov'] = self.args.hfov
         params['resolution'] = self.args.map_resolution
         params['map_size_cm'] = self.args.map_size_cm
         params['agent_min_z'] = 25
@@ -414,6 +424,35 @@ class PointNavEnv(habitat.RLEnv):
         goal2d = np.array([-transformed_goal[2], -transformed_goal[0]])
         return goal2d
 
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(roll / 2) * np.sin(pitch / 2) * np.sin(
+            yaw / 2)
+        qy = np.cos(roll / 2) * np.sin(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.cos(pitch / 2) * np.sin(
+            yaw / 2)
+        qz = np.cos(roll / 2) * np.cos(pitch / 2) * np.sin(yaw / 2) - np.sin(roll / 2) * np.sin(pitch / 2) * np.cos(
+            yaw / 2)
+        qw = np.cos(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) + np.sin(roll / 2) * np.sin(pitch / 2) * np.sin(
+            yaw / 2)
+        return np.array([qx, qy, qz, qw])
+
+    def ans_frame_to_hab(self, start, pose):
+
+        # Transforming Position to Habitat Frame
+        Z, X, Y = pose[0] - start[0], pose[1] - start[1], 0
+        Z = -Z
+        X = -X
+        position = np.array([X,Y,Z])
+        hab_quat_start = super().habitat_env.sim.get_agent_state(0).rotation
+        R = quaternion.as_rotation_matrix(hab_quat_start)
+        hab_pos_start = super().habitat_env.sim.get_agent_state(0)
+        transformed_position = np.matmul(R, position) + hab_pos_start.position
+
+        # Transforming Orientation to Habitat Frame
+        orientation = quaternion.as_rotation_matrix(np.array(self.euler_to_quaternion(0, -np.deg2rad(pose[2]), 0)))
+        rotated_orientation = np.matmul(hab_quat_start, orientation)
+        transformed_orientation = self.euler_to_quaternion(rotated_orientation[0], rotated_orientation[1], rotated_orientation[2])
+        return transformed_position, transformed_orientation
+
     def get_gt_pose_change(self):
         curr_sim_pose = self.get_sim_location()
         dx, dy, do = pu.get_rel_pose_change(curr_sim_pose, self.last_sim_location)
@@ -453,8 +492,6 @@ class PointNavEnv(habitat.RLEnv):
         start = [int(r * 100.0/args.map_resolution - gx1),
                  int(c * 100.0/args.map_resolution - gy1)]
         start = pu.threshold_poses(start, grid.shape)
-        #TODO: try reducing this
-        # print("updated curr loc :", self.curr_loc)
         self.visited[gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                        start[1]-2:start[1]+3] = 1
 
@@ -498,118 +535,130 @@ class PointNavEnv(habitat.RLEnv):
         self.intrinsic_rew = -exp_pred[goal[0], goal[1]]
 
         # Get short-term goal
-        stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window)
+        # stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window)
 
         # Find GT action
-        if not self.args.use_optimal_policy and not self.args.train_local:
-            gt_action = 0
-        else:
-            gt_action = self._get_gt_action(1 - self.explorable_map, start,
-                                            [int(stg[0]), int(stg[1])],
-                                            planning_window, start_o)
+        # if not self.args.use_optimal_policy and not self.args.train_local:
+        # gt_action = 0
+        # else:
+        #     gt_action = self._get_gt_action(1 - self.explorable_map, start,
+        #                                     [int(stg[0]), int(stg[1])],
+        #                                     planning_window, start_o)
 
-        (stg_x, stg_y) = stg
-        relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
-        relative_dist = relative_dist*args.map_resolution/100.
-        angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
-                                                stg_y - start[1]))
-        angle_agent = (start_o)%360.0
-        if angle_agent > 180:
-            angle_agent -= 360
+        # (stg_x, stg_y) = stg
+        # relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
+        # relative_dist = relative_dist*args.map_resolution/100.
+        # angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
+        #                                         stg_y - start[1]))
+        # angle_agent = (start_o)%360.0
+        # if angle_agent > 180:
+        #     angle_agent -= 360
 
-        relative_angle = (angle_agent - angle_st_goal)%360.0
-        if relative_angle > 180:
-            relative_angle -= 360
+        # relative_angle = (angle_agent - angle_st_goal)%360.0
+        # if relative_angle > 180:
+        #     relative_angle -= 360
 
-        def discretize(dist):
-            dist_limits = [0.25, 3, 10]
-            dist_bin_size = [0.05, 0.25, 1.]
-            if dist < dist_limits[0]:
-                ddist = int(dist/dist_bin_size[0])
-            elif dist < dist_limits[1]:
-                ddist = int((dist - dist_limits[0])/dist_bin_size[1]) + \
-                    int(dist_limits[0]/dist_bin_size[0])
-            elif dist < dist_limits[2]:
-                ddist = int((dist - dist_limits[1])/dist_bin_size[2]) + \
-                    int(dist_limits[0]/dist_bin_size[0]) + \
-                    int((dist_limits[1] - dist_limits[0])/dist_bin_size[1])
-            else:
-                ddist = int(dist_limits[0]/dist_bin_size[0]) + \
-                    int((dist_limits[1] - dist_limits[0])/dist_bin_size[1]) + \
-                    int((dist_limits[2] - dist_limits[1])/dist_bin_size[2])
-            return ddist
+        # def discretize(dist):
+        #     dist_limits = [0.25, 3, 10]
+        #     dist_bin_size = [0.05, 0.25, 1.]
+        #     if dist < dist_limits[0]:
+        #         ddist = int(dist/dist_bin_size[0])
+        #     elif dist < dist_limits[1]:
+        #         ddist = int((dist - dist_limits[0])/dist_bin_size[1]) + \
+        #             int(dist_limits[0]/dist_bin_size[0])
+        #     elif dist < dist_limits[2]:
+        #         ddist = int((dist - dist_limits[1])/dist_bin_size[2]) + \
+        #             int(dist_limits[0]/dist_bin_size[0]) + \
+        #             int((dist_limits[1] - dist_limits[0])/dist_bin_size[1])
+        #     else:
+        #         ddist = int(dist_limits[0]/dist_bin_size[0]) + \
+        #             int((dist_limits[1] - dist_limits[0])/dist_bin_size[1]) + \
+        #             int((dist_limits[2] - dist_limits[1])/dist_bin_size[2])
+        #     return ddist
 
-        output = np.zeros((args.goals_size + 1))
+        # output = np.zeros((args.goals_size + 1))
 
-        output[0] = int((relative_angle%360.)/5.)
-        output[1] = discretize(relative_dist)
-        output[2] = gt_action
+        # output[0] = int((relative_angle%360.)/5.)
+        # output[1] = discretize(relative_dist)
+        # output[2] = gt_action
 
-        self.relative_angle = relative_angle
+        # self.relative_angle = relative_angle
         # print("short term goal : ", output)
-        if args.visualize or args.print_images:
-            dump_dir = "{}/dump/{}/".format(args.dump_location,
-                                                args.exp_name)
-            ep_dir = '{}/episodes/{}/{}/'.format(
-                            dump_dir, self.rank+1, self.episode_no)
-            if not os.path.exists(ep_dir):
-                os.makedirs(ep_dir)
+        np_vis_img = None
+        if self.total_num_steps % args.print_frequency == 0:
+            if args.visualize or args.print_images:
+                dump_dir = "{}/dump/{}/".format(args.dump_location,
+                                                    args.exp_name)
+                ep_dir = '{}/episodes/{}/{}/'.format(
+                                dump_dir, self.rank+1, self.episode_no)
+                if not os.path.exists(ep_dir):
+                    os.makedirs(ep_dir)
 
-            if args.vis_type == 1: # Visualize predicted map and pose
-                vis_grid = vu.get_colored_map(np.rint(map_pred),
-                                self.collison_map[gx1:gx2, gy1:gy2],
-                                self.visited_vis[gx1:gx2, gy1:gy2],
-                                self.visited_gt[gx1:gx2, gy1:gy2],
-                                goal,
-                                self.explored_map[gx1:gx2, gy1:gy2],
-                                self.explorable_map[gx1:gx2, gy1:gy2],
-                                self.map[gx1:gx2, gy1:gy2] *
-                                    self.explored_map[gx1:gx2, gy1:gy2])
-                vis_grid = np.flipud(vis_grid)
-                vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
-                            (start_x - gy1*args.map_resolution/100.0,
-                             start_y - gx1*args.map_resolution/100.0,
-                             start_o),
-                            (start_x_gt - gy1*args.map_resolution/100.0,
-                             start_y_gt - gx1*args.map_resolution/100.0,
-                             start_o_gt),
-                            dump_dir, self.rank, self.episode_no,
-                            self.timestep, args.visualize,
-                            args.print_images, args.vis_type)
+                if args.vis_type == 1: # Visualize predicted map and pose
+                    vis_grid = vu.get_colored_map(np.rint(map_pred),
+                                    self.collison_map[gx1:gx2, gy1:gy2],
+                                    self.visited_vis[gx1:gx2, gy1:gy2],
+                                    self.visited_gt[gx1:gx2, gy1:gy2],
+                                    goal,
+                                    self.explored_map[gx1:gx2, gy1:gy2],
+                                    self.explorable_map[gx1:gx2, gy1:gy2],
+                                    self.map[gx1:gx2, gy1:gy2] *
+                                        self.explored_map[gx1:gx2, gy1:gy2])
+                    vis_grid = np.flipud(vis_grid)
+                    np_vis_img = vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
+                                (start_x - gy1*args.map_resolution/100.0,
+                                start_y - gx1*args.map_resolution/100.0,
+                                start_o),
+                                (start_x_gt - gy1*args.map_resolution/100.0,
+                                start_y_gt - gx1*args.map_resolution/100.0,
+                                start_o_gt),
+                                dump_dir, self.rank, self.episode_no,
+                                self.timestep, args.visualize,
+                                args.print_images, args.vis_type)
 
-            else: # Visualize ground-truth map and pose
-                vis_grid = vu.get_colored_map(self.map,
-                                self.collison_map,
-                                self.visited_gt,
-                                self.visited_gt,
-                                (goal[0]+gx1, goal[1]+gy1),
-                                self.explored_map,
-                                self.explorable_map,
-                                self.map*self.explored_map)
-                vis_grid = np.flipud(vis_grid)
-                vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
-                            (start_x_gt, start_y_gt, start_o_gt),
-                            (start_x_gt, start_y_gt, start_o_gt),
-                            dump_dir, self.rank, self.episode_no,
-                            self.timestep, args.visualize,
-                            args.print_images, args.vis_type)
-        return output
+                else: # Visualize ground-truth map and pose
+                    vis_grid = vu.get_colored_map(self.map,
+                                    self.collison_map,
+                                    self.visited_gt,
+                                    self.visited_gt,
+                                    (self.goal_rc[0], self.goal_rc[1]),
+                                    self.explored_map,
+                                    self.explorable_map,
+                                    self.map*self.explored_map)
+                    vis_grid = np.flipud(vis_grid)
+                    np_vis_img =  vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
+                                (start_x_gt, start_y_gt, start_o_gt),
+                                (start_x_gt, start_y_gt, start_o_gt),
+                                dump_dir, self.rank, self.episode_no,
+                                self.timestep, args.visualize,
+                                args.print_images, args.vis_type)
+        # if np_vis_img is not None: self.numpy_visualizations.append(np_vis_img)
+        # print("vis length", len(self.numpy_visualizations))
+        return [0.0, 0.0, 0.0]
 
-    def get_optimal_gt_action(self):
+    def get_optimal_gt_action(self, debug=False):
         EPSILON = 1e-6
         config_env = super().habitat_env._config
         goal_pos = super().habitat_env.current_episode.goals[0].position
         goal_radius = config_env.TASK.SUCCESS_DISTANCE
         current_state = super().habitat_env.sim.get_agent_state()
 
-        return HabitatSimActions.TURN_RIGHT
+        # return HabitatSimActions.STOP
+        log_bool = self.total_num_steps % self.args.log_interval == 0
+        self.total_num_steps += 1
+        # add date
+        getdate = lambda: str(datetime.now()).split('.')[0]
 
-        if (super().habitat_env.sim.geodesic_distance(
-                current_state.position, goal_pos
-        )
-                <= goal_radius
-        ):
-            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+        # set true for debuging
+        if debug: 
+            log = lambda w, x, y, z: print("\n{}\nGoal Position:{}\nCurrent Position:{}\nOptimal Action: {}\nGeodistic distance to goal: {}".format(getdate(), w, x, y, z))
+        else:
+            log = lambda w, x, y, z: print("\n{}\nGeodistic Dist: {}".format(getdate(), z))
+
+        geoDist = super().habitat_env.sim.geodesic_distance(current_state.position, goal_pos)
+        if ( geoDist <= goal_radius ):
+            if log_bool: log(goal_pos, current_state.position, 'STOP', geoDist)
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
             return HabitatSimActions.STOP
         points = super().habitat_env.sim.get_straight_shortest_path_points(
             current_state.position, goal_pos
@@ -629,16 +678,75 @@ class PointNavEnv(habitat.RLEnv):
             max_grad_dir.x = 0
             max_grad_dir = np.normalized(max_grad_dir)
         if max_grad_dir is None:
+            if log_bool: log(goal_pos, current_state.position, 'FORWARD', geoDist)
             # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
             return HabitatSimActions.MOVE_FORWARD
         else:
             alpha = angle_between_quaternions(max_grad_dir, current_state.rotation)
             if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
-                # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+                if log_bool: log(goal_pos, current_state.position, 'FORWARD', geoDist)
+                # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
                 return HabitatSimActions.MOVE_FORWARD
             else:
                 if (angle_between_quaternions(
                             max_grad_dir, current_state.rotation
+                        )
+                        < alpha):
+                    if log_bool: log(goal_pos, current_state.position, 'LEFT', geoDist)
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+                    return HabitatSimActions.TURN_LEFT
+                else:
+                    if log_bool: log(goal_pos, current_state.position, 'RIGHT', geoDist)
+                    # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+                    return HabitatSimActions.TURN_RIGHT
+        if log_bool: log(goal_pos, current_state.position, 'STOP', geoDist)
+        # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP\nGeodistic Dist: {2}".format(goal_pos, current_state.position, geoDist))
+        return HabitatSimActions.STOP
+
+    def get_optimal_action(self, start, pose_estimate):
+        EPSILON = 1e-6
+        config_env = super().habitat_env._config
+        goal_pos = super().habitat_env.current_episode.goals[0].position
+        goal_radius = config_env.TASK.SUCCESS_DISTANCE
+
+        current_state = super().habitat_env.sim.get_agent_state()
+        position_estimate, rotation_estimate = self.ans_frame_to_hab(start, pose_estimate)
+
+        if (super().habitat_env.sim.geodesic_distance(
+                position_estimate, goal_pos
+        )
+                <= goal_radius
+        ):
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+            return HabitatSimActions.STOP
+        points = super().habitat_env.sim.get_straight_shortest_path_points(
+            position_estimate, goal_pos
+        )
+        # Add a little offset as things get weird if
+        # points[1] - points[0] is anti-parallel with forward
+        if len(points) < 2:
+            max_grad_dir = None
+        else:
+            max_grad_dir = quaternion_from_two_vectors(
+                super().habitat_env.sim.forward_vector,
+                points[1]
+                - points[0]
+                + EPSILON
+                * np.cross(super().habitat_env.sim.up_vector, super().habitat_env.sim.forward_vector),
+            )
+            max_grad_dir.x = 0
+            max_grad_dir = np.normalized(max_grad_dir)
+        if max_grad_dir is None:
+            # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+            return HabitatSimActions.MOVE_FORWARD
+        else:
+            alpha = angle_between_quaternions(max_grad_dir, rotation_estimate)
+            if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
+                # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+                return HabitatSimActions.MOVE_FORWARD
+            else:
+                if (angle_between_quaternions(
+                            max_grad_dir, rotation_estimate
                         )
                         < alpha):
                     # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
@@ -649,6 +757,59 @@ class PointNavEnv(habitat.RLEnv):
         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
         return HabitatSimActions.STOP
 
+    # def get_greedy_action(self, start, pose_estimate):
+    #     EPSILON = 1e-6
+    #     config_env = super().habitat_env._config
+    #     goal_pos = super().habitat_env.current_episode.goals[0].position
+    #     goal_radius = config_env.TASK.SUCCESS_DISTANCE
+    #
+    #     current_state = super().habitat_env.sim.get_agent_state()
+    #     position_estimate, rotation_estimate = self.ans_frame_to_hab(start, pose_estimate)
+    #
+    #     if (super().habitat_env.sim.geodesic_distance(
+    #             position_estimate, goal_pos
+    #     )
+    #             <= goal_radius
+    #     ):
+    #         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+    #         return HabitatSimActions.STOP
+    #     points = super().habitat_env.sim.get_straight_shortest_path_points(
+    #         position_estimate, goal_pos
+    #     )
+    #     # Add a little offset as things get weird if
+    #     # points[1] - points[0] is anti-parallel with forward
+    #     if len(points) < 2:
+    #         max_grad_dir = None
+    #     else:
+    #         max_grad_dir = quaternion_from_two_vectors(
+    #             super().habitat_env.sim.forward_vector,
+    #             points[1]
+    #             - points[0]
+    #             + EPSILON
+    #             * np.cross(super().habitat_env.sim.up_vector, super().habitat_env.sim.forward_vector),
+    #         )
+    #         max_grad_dir.x = 0
+    #         max_grad_dir = np.normalized(max_grad_dir)
+    #     if max_grad_dir is None:
+    #         # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+    #         return HabitatSimActions.MOVE_FORWARD
+    #     else:
+    #         alpha = angle_between_quaternions(max_grad_dir, rotation_estimate)
+    #         if alpha <= np.deg2rad(config_env.SIMULATOR.TURN_ANGLE) + EPSILON:
+    #             # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: MOVE FORWARD".format(goal_pos, current_state.position))
+    #             return HabitatSimActions.MOVE_FORWARD
+    #         else:
+    #             if (angle_between_quaternions(
+    #                         max_grad_dir, rotation_estimate
+    #                     )
+    #                     < alpha):
+    #                 # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+    #                 return HabitatSimActions.TURN_LEFT
+    #             else:
+    #                 # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: TURN LEFT".format(goal_pos, current_state.position))
+    #                 return HabitatSimActions.TURN_RIGHT
+    #     # print("\nGoal Position:{0}\nCurrent Position:{1}\nOptimal Action: STOP".format(goal_pos, current_state.position))
+    #     return HabitatSimActions.STOP
 
     def _get_gt_map(self, full_map_size):
         self.scene_name = self.habitat_env.sim.config.SCENE
@@ -863,5 +1024,5 @@ class PointNavEnv(habitat.RLEnv):
             gt_action = HabitatSimActions.TURN_LEFT
         else:
             gt_action = HabitatSimActions.MOVE_FORWARD
-        print("gt action ", gt_action)
+        # print("gt action ", gt_action)
         return gt_action

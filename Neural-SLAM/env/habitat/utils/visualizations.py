@@ -3,11 +3,14 @@ import sys
 import matplotlib
 import numpy as np
 
-if sys.platform == 'darwin':
-    matplotlib.use("tkagg")
-else:
-    matplotlib.use('Agg')
+# if sys.platform == 'darwin':
+#     matplotlib.use("tkagg")
+# else:
+#     matplotlib.use('Agg')
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
+
 
 import seaborn as sns
 import skimage
@@ -76,7 +79,16 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
         fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
             dump_dir, (rank + 1), ep_no, rank, ep_no, t)
         plt.savefig(fn)
-
+    
+    # return plt into ndarray
+    # pfig = plt.figure()
+    # pfig.canvas.draw()
+    # # ndplt = np.array(pfig.canvas.renderer.buffer_rgba()) # returns 4 channels
+    # # ndplt = ndplt[:, :, :3]
+    # ndplt = np.frombuffer(pfig.canvas.tostring_rgb(), dtype=np.uint8)
+    # ndplt = ndplt.reshape(pfig.canvas.get_width_height()[::-1] + (3,))
+    # print("plot", ndplt.shape)
+    # return ndplt
 
 def insert_circle(mat, x, y, value):
     mat[x - 2: x + 3, y - 2:y + 3] = value

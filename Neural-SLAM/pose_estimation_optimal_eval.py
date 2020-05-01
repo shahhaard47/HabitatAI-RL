@@ -80,7 +80,6 @@ def get_delta_pose(current_pose, action):
 
 
 def main():
-
     print("---------------------")
     print("Actions")
     print("STOP", HabitatSimActions.STOP)
@@ -110,7 +109,6 @@ def main():
     # setting up rewards and losses
     # policy_loss = 0
     best_cost = float('inf')
-    best_slam_loss = 10000000
     costs = deque(maxlen=1000)
     exp_costs = deque(maxlen=1000)
     pose_costs = deque(maxlen=1000)
@@ -158,6 +156,8 @@ def main():
     planner_pose_inputs = np.zeros((num_scenes, 7))
 
     # show_gpu_usage()
+    start_full_pose = np.zeros(3)
+    start_full_pose[:2] = args.map_size_cm / 100.0 / 2.0
 
     def init_map_and_pose():
         full_map.fill_(0.)
@@ -184,6 +184,7 @@ def main():
             local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
             local_pose[e] = full_pose[e] - \
                             torch.from_numpy(origins[e]).to(device).float()
+
     init_map_and_pose()
     print("maps and poses intialized")
 
@@ -228,28 +229,28 @@ def main():
 
     print("predicting first pose and initializing maps")
     # if not (args.use_gt_pose and args.use_gt_map):
-        # delta_pose is the expected change in pose when action is applied at
-        # the current pose in the absence of noise.
-        # initially no action is applied so this is zero.
+    # delta_pose is the expected change in pose when action is applied at
+    # the current pose in the absence of noise.
+    # initially no action is applied so this is zero.
     delta_poses = torch.from_numpy(np.zeros(local_pose.shape)).float().to(device)
     # initial estimate for local pose and local map from first observation,
     # initialized (zero) pose and map
     _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
         nslam_module(obs, obs, delta_poses, local_map[:, 0, :, :],
-                     local_map[:, 1, :, :], local_pose)            
-        # if args.use_gt_pose:
-        #     # todo update local_pose here
-        #     full_pose = envs.get_gt_pose()
-        #     for e in range(num_scenes):
-        #         local_pose[e] = full_pose[e] - \
-        #                         torch.from_numpy(origins[e]).to(device).float()
-        # if args.use_gt_map:
-        #     full_map = envs.get_gt_map()
-        #     for e in range(num_scenes):
-        #         local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
+                     local_map[:, 1, :, :], local_pose)
+    # if args.use_gt_pose:
+    #     # todo update local_pose here
+    #     full_pose = envs.get_gt_pose()
+    #     for e in range(num_scenes):
+    #         local_pose[e] = full_pose[e] - \
+    #                         torch.from_numpy(origins[e]).to(device).float()
+    # if args.use_gt_map:
+    #     full_map = envs.get_gt_map()
+    #     for e in range(num_scenes):
+    #         local_map[e] = full_map[e, :, lmb[e, 0]:lmb[e, 1], lmb[e, 2]:lmb[e, 3]]
     print("slam module returned pose and maps")
 
-    # NOT NEEDED : 4/29 
+    # NOT NEEDED : 4/29
     local_pose_np = local_pose.cpu().numpy()
     # update local map for each scene - input for planner
     for e in range(num_scenes):
@@ -286,7 +287,7 @@ def main():
     print("starting episodes")
     with TensorboardWriter(
             tb_dir, flush_secs=60
-        ) as writer:
+    ) as writer:
         for itr_counter, ep_num in enumerate(range(num_episodes)):
             print("------------------------------------------------------")
             print("Episode", ep_num)
@@ -295,7 +296,6 @@ def main():
             #     print("DONE WE FIXED IT")
             #     die()
             # for step in range(args.max_episode_length):
-            visimgs = []
             step_bar = tqdm(range(args.max_episode_length))
             for step in step_bar:
                 # print("------------------------------------------------------")
@@ -309,45 +309,42 @@ def main():
                 del last_obs
                 last_obs = obs.detach()
                 #             if not args.use_optimal_policy and not args.use_shortest_path_gt:
-                    #                 local_masks = l_masks
-                    #                 local_goals = planner_out[:, :-1].to(device).long()
+                #                 local_masks = l_masks
+                #                 local_goals = planner_out[:, :-1].to(device).long()
 
-                    #                 if args.train_local:
-                    #                     torch.set_grad_enabled(True)
+                #                 if args.train_local:
+                #                     torch.set_grad_enabled(True)
 
-                    #                 # local policy "step"
-                    #                 action, action_prob, local_rec_states = l_policy(
-                    #                     obs,
-                    #                     local_rec_states,
-                    #                     local_masks,
-                    #                     extras=local_goals,
-                    #                 )
+                #                 # local policy "step"
+                #                 action, action_prob, local_rec_states = l_policy(
+                #                     obs,
+                #                     local_rec_states,
+                #                     local_masks,
+                #                     extras=local_goals,
+                #                 )
 
-                    #                 if args.train_local:
-                    #                     action_target = planner_out[:, -1].long().to(device)
-                    #                     # doubt: this is probably wrong? one is action probability and the other is action
-                    #                     policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
-                    #                     torch.set_grad_enabled(False)
-                    #                 l_action = action.cpu()
-                    #             else:
-                    #                 if args.use_optimal_policy:
-                    #                     l_action = planner_out[:, -1]
-                    #                 else:
-                    #                     l_action = envs.get_optimal_gt_action()
+                #                 if args.train_local:
+                #                     action_target = planner_out[:, -1].long().to(device)
+                #                     # doubt: this is probably wrong? one is action probability and the other is action
+                #                     policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
+                #                     torch.set_grad_enabled(False)
+                #                 l_action = action.cpu()
+                #             else:
+                #                 if args.use_optimal_policy:
+                #                     l_action = planner_out[:, -1]
+                #                 else:
+                #                     l_action = envs.get_optimal_gt_action()
 
-                l_action = envs.get_optimal_gt_action().cpu()
+                l_action = envs.get_optimal_action(start_full_pose, full_pose).cpu()
                 # if step > 10:
                 #     l_action = torch.tensor([HabitatSimActions.STOP])
 
-                
-                
                 # ------------------------------------------------------------------
                 # ------------------------------------------------------------------
                 # Env step
                 # print("stepping with action ", l_action)
                 # try:
                 obs, rew, done, infos = envs.step(l_action)
-
 
                 # ------------------------------------------------------------------
                 # Reinitialize variables when episode ends
@@ -358,9 +355,8 @@ def main():
                     init_map_and_pose()
                     del last_obs
                     last_obs = obs.detach()
-                    print("Reinitialize since at end of episode ") 
+                    print("Reinitialize since at end of episode ")
                     obs, infos = envs.reset()
-
 
                 # except:
                 #     print("can't do that")
@@ -373,7 +369,7 @@ def main():
                 # step_bar.set_description("rew, done, info-sensor_pose, pose_err (stepping) {}, {}, {}, {}".format(rew, done, infos[0]['sensor_pose'], infos[0]['pose_err']))
                 if total_num_steps % args.log_interval == 0 and False:
                     print("rew, done, info-sensor_pose, pose_err after stepping ", rew, done, infos[0]['sensor_pose'],
-                    infos[0]['pose_err'])
+                          infos[0]['pose_err'])
                 # l_masks = torch.FloatTensor([0 if x else 1
                 #                              for x in done]).to(device)
 
@@ -396,7 +392,6 @@ def main():
                 if args.train_slam:
                     # Add frames to memory
                     for env_idx in range(num_scenes):
-                        delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
                         env_obs = obs[env_idx].to("cpu")
                         env_poses = torch.from_numpy(np.asarray(
                             delta_poses_np[env_idx]
@@ -414,11 +409,12 @@ def main():
                         slam_memory.push(
                             (last_obs[env_idx].cpu(), env_obs, env_poses),
                             (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
+                        delta_poses_np[env_idx] = get_delta_pose(local_pose_np[env_idx], l_action[env_idx])
                 delta_poses = torch.from_numpy(delta_poses_np).float().to(device)
                 # print("delta pose from SLAM ", delta_poses)
                 _, _, local_map[:, 0, :, :], local_map[:, 1, :, :], _, local_pose = \
-                        nslam_module(last_obs, obs, delta_poses, local_map[:, 0, :, :],
-                                    local_map[:, 1, :, :], local_pose, build_maps=True)
+                    nslam_module(last_obs, obs, delta_poses, local_map[:, 0, :, :],
+                                 local_map[:, 1, :, :], local_pose, build_maps=True)
                 # print("updated local pose from SLAM ", local_pose)
                 # if args.use_gt_pose:
                 #     # todo update local_pose here
@@ -481,15 +477,12 @@ def main():
                     p_input['exp_pred'] = local_map[e, 1, :, :].cpu().numpy()
                     p_input['pose_pred'] = planner_pose_inputs[e]
                     p_input['goal'] = global_goals[e].cpu().numpy()
-                
                 planner_out = envs.get_short_term_goal(planner_inputs)
-
 
                 ### TRAINING
                 torch.set_grad_enabled(True)
                 # ------------------------------------------------------------------
                 # Train Neural SLAM Module
-                slam_overall_loss = 0.0
                 if args.train_slam and len(slam_memory) > args.slam_batch_size:
                     for _ in range(args.slam_iterations):
                         inputs, outputs = slam_memory.sample(args.slam_batch_size)
@@ -506,26 +499,26 @@ def main():
 
                         b_proj_pred, b_fp_exp_pred, _, _, b_pose_err_pred, _ = \
                             nslam_module(b_obs_last, b_obs, b_poses,
-                                        None, None, None,
-                                        build_maps=False)
+                                         None, None, None,
+                                         build_maps=False)
                         loss = 0
                         if args.proj_loss_coeff > 0:
                             proj_loss = F.binary_cross_entropy(b_proj_pred,
-                                                            gt_fp_projs)
+                                                               gt_fp_projs)
                             costs.append(proj_loss.item())
                             loss += args.proj_loss_coeff * proj_loss
 
                         if args.exp_loss_coeff > 0:
                             exp_loss = F.binary_cross_entropy(b_fp_exp_pred,
-                                                            gt_fp_explored)
+                                                              gt_fp_explored)
                             exp_costs.append(exp_loss.item())
                             loss += args.exp_loss_coeff * exp_loss
 
                         if args.pose_loss_coeff > 0:
                             pose_loss = torch.nn.MSELoss()(b_pose_err_pred,
-                                                        gt_pose_err)
+                                                           gt_pose_err)
                             pose_costs.append(args.pose_loss_coeff *
-                                            pose_loss.item())
+                                              pose_loss.item())
                             loss += args.pose_loss_coeff * pose_loss
 
                         if args.train_slam:
@@ -533,25 +526,22 @@ def main():
                             loss.backward()
                             slam_optimizer.step()
 
-                        slam_overall_loss += loss
-
                         del b_obs_last, b_obs, b_poses
                         del gt_fp_projs, gt_fp_explored, gt_pose_err
                         del b_proj_pred, b_fp_exp_pred, b_pose_err_pred
 
-                    slam_overall_loss /= args.slam_iterations # mean across iterations
                 # ------------------------------------------------------------------
 
                 # ------------------------------------------------------------------
                 # Train Local Policy
-                    # if (l_step + 1) % args.local_policy_update_freq == 0 \
-                    #         and args.train_local:
-                    #     local_optimizer.zero_grad()
-                    #     policy_loss.backward()
-                    #     local_optimizer.step()
-                    #     l_action_losses.append(policy_loss.item())
-                    #     policy_loss = 0
-                    #     local_rec_states = local_rec_states.detach_()
+                # if (l_step + 1) % args.local_policy_update_freq == 0 \
+                #         and args.train_local:
+                #     local_optimizer.zero_grad()
+                #     policy_loss.backward()
+                #     local_optimizer.step()
+                #     l_action_losses.append(policy_loss.item())
+                #     policy_loss = 0
+                #     local_rec_states = local_rec_states.detach_()
                 # ------------------------------------------------------------------
 
                 # Finish Training
@@ -560,6 +550,9 @@ def main():
 
                 # ------------------------------------------------------------------
                 # Logging
+                writer.add_scalar("SLAM_Loss_Proj", np.mean(costs), total_num_steps)
+                writer.add_scalar("SLAM_Loss_Exp", np.mean(exp_costs), total_num_steps)
+                writer.add_scalar("SLAM_Loss_Pose", np.mean(pose_costs), total_num_steps)
 
                 gettime = lambda: str(datetime.now()).split('.')[0]
                 if total_num_steps % args.log_interval == 0:
@@ -570,9 +563,9 @@ def main():
                         "{},".format(time.strftime("%Hh %Mm %Ss", time_elapsed)),
                         gettime(),
                         "num timesteps {},".format(total_num_steps *
-                                                num_scenes),
+                                                   num_scenes),
                         "FPS {},".format(int(total_num_steps * num_scenes \
-                                            / (end - start)))
+                                             / (end - start)))
                     ])
 
                     log += "\n\tLosses:"
@@ -586,9 +579,8 @@ def main():
 
                     if args.train_slam and len(costs) > 0:
                         log += " ".join([
-                            " SLAM Loss overall/proj/exp/pose:"
-                            "{:.4f}/{:.4f}/{:.4f}/{:.4f}".format(
-                                slam_overall_loss,
+                            " SLAM Loss proj/exp/pose:"
+                            "{:.4f}/{:.4f}/{:.4f}".format(
                                 np.mean(costs),
                                 np.mean(exp_costs),
                                 np.mean(pose_costs))
@@ -606,16 +598,10 @@ def main():
                     # Save Neural SLAM Model
                     if len(costs) >= 1000 and np.mean(costs) < best_cost \
                             and not args.eval:
-                        print("Saved best proj model")
+                        print("Saved best model")
                         best_cost = np.mean(costs)
                         torch.save(nslam_module.state_dict(),
-                                os.path.join(log_dir, "model_best_proj.slam"))
-                    
-                    if slam_overall_loss < best_slam_loss and not args.eval:
-                        print("Saved best overall loss model")
-                        best_slam_loss = slam_overall_loss
-                        torch.save(nslam_module.state_dict(), 
-                                os.path.join(log_dir, "model_best.slam"))
+                                   os.path.join(log_dir, "model_best.slam"))
 
                     # Save Local Policy Model
                     # if len(l_action_losses) >= 100 and \
@@ -625,18 +611,14 @@ def main():
                     #                os.path.join(log_dir, "model_best.local"))
                     #
                     #     best_local_loss = np.mean(l_action_losses)
-                writer.add_scalar("proj_loss_slam", np.mean(costs), total_num_steps)
-                writer.add_scalar("exp_loss_slam", np.mean(exp_costs), total_num_steps)
-                writer.add_scalar("pose_loss_slam", np.mean(pose_costs), total_num_steps)
-                writer.add_scalar("SLAM_overall_Loss", slam_overall_loss, total_num_steps)
-                writer.add_scalar("SLAM_best_loss", best_slam_loss, total_num_steps)
+
                 # Save periodic models
                 if (total_num_steps * num_scenes) % args.save_periodic < \
                         num_scenes:
                     step = total_num_steps * num_scenes
                     if args.train_slam:
                         torch.save(nslam_module.state_dict(),
-                                os.path.join(dump_dir,
+                                   os.path.join(dump_dir,
                                                 "periodic_{}.slam".format(step)))
                     # if args.train_local:
                     #     torch.save(l_policy.state_dict(),
@@ -644,17 +626,8 @@ def main():
                     #                             "periodic_{}.local".format(step)))
                 # ------------------------------------------------------------------
 
-                if  l_action == HabitatSimActions.STOP:  # Last episode step
+                if l_action == HabitatSimActions.STOP:  # Last episode step
                     break
-            
-            npvis_images = np.array(envs.get_numpy_vis())
-            writer.add_video_from_np_images(
-                video_name="ep_{}".format(ep_num),
-                step_idx=total_num_steps,
-                images=npvis_images,
-                fps=3
-            )
-            envs.reset_numpy_vis()
 
     # Print and save model performance numbers during evaluation
     if args.eval:
