@@ -51,3 +51,4 @@ DATASET:
   SPLIT: train_small
   DATA_PATH: "<absolute/path/to/dataset>/data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz"
   SCENES_DIR: "<absolute/path/to/dataset>/data/scene_datasets"
+
