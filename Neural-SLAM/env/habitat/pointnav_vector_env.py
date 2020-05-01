@@ -29,7 +29,12 @@ ACTION_SPACE_COMMAND = "action_space"
 CALL_COMMAND = "call"
 EPISODE_COMMAND = "current_episode"
 GET_SHORT_TERM_GOAL = "get_short_term_goal"
-
+GET_EXPLORABLE_MAP = "get_explorable_map"
+GET_GT_MAP = "get_gt_map"
+GET_SIM_POSE = "get_sim_pose"
+GET_GT_POSE = "get_gt_pose"
+GET_GOAL_COORDS = "get_goal_coords"
+GET_OPTIMAL_GT_ACTION = "get_optimal_gt_action"
 
 def _make_env_fn(
     config: Config, dataset: Optional[habitat.Dataset] = None, rank: int = 0
@@ -199,6 +204,24 @@ class VectorEnv:
                 elif command == GET_SHORT_TERM_GOAL:
                     output = env.get_short_term_goal(data)
                     connection_write_fn(output)
+                elif command == GET_GT_MAP:
+                    map = env.get_gt_map()
+                    connection_write_fn(map)
+                elif command == GET_GT_POSE:
+                    pose = env.get_gt_pose()
+                    connection_write_fn(pose)
+                elif command == GET_EXPLORABLE_MAP:
+                    map = env.get_explorable_map()
+                    connection_write_fn(map)
+                elif command == GET_GOAL_COORDS:
+                    goal = env.get_goal_coords()
+                    connection_write_fn(goal)
+                elif command == GET_SIM_POSE:
+                    pose = env.get_sim_pose()
+                    connection_write_fn(pose)
+                elif command == GET_OPTIMAL_GT_ACTION:
+                    action = env.get_optimal_gt_action()
+                    connection_write_fn(action)
                 else:
                     raise NotImplementedError
 
@@ -459,6 +482,72 @@ class VectorEnv:
             results.append(read_fn())
         self._is_waiting = False
         return np.stack(results)
+
+    def get_gt_pose(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_GT_POSE, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return results
+
+    def get_sim_pose(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_SIM_POSE, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return results
+
+    def get_goal_coords(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_GOAL_COORDS, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return results
+
+    def get_explorable_map(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_EXPLORABLE_MAP, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return np.stack(results)
+
+    def get_gt_map(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_GT_MAP, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return np.stack(results)
+    
+    def get_optimal_gt_action(self):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((GET_OPTIMAL_GT_ACTION, None))
+        results = []
+        for read_fn in self._connection_read_fns:
+            results.append(read_fn())
+        self._is_waiting = False
+        return results
 
     def _assert_not_closed(self):
         assert not self._is_closed, "Trying to operate on a SubprocVecEnv after calling close()"

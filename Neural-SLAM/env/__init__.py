@@ -49,8 +49,30 @@ class VecPyTorch():
 
     def get_short_term_goal(self, inputs):
         stg = self.venv.get_short_term_goal(inputs)
-        stg = torch.from_numpy(stg).float()
+        stg = torch.from_numpy(stg).int()
         return stg
 
     def close(self):
         return self.venv.close()
+
+    # todo check if different device needed
+    def get_gt_pose(self):
+        return torch.tensor(self.venv.get_gt_pose()).float().to(self.device)
+
+    def get_sim_pose(self):
+        return torch.tensor(self.venv.get_sim_pose()).float().to(self.device)
+
+    def get_gt_map(self):
+        gt_map = self.venv.get_gt_map()
+        return torch.from_numpy(gt_map).float().to(self.device)
+
+    def get_sim_map(self):
+        sim_map = self.venv.get_sim_map()
+        return torch.from_numpy(sim_map).float().to(self.device)
+
+    def get_goal_coords(self):
+        return torch.tensor(self.venv.get_goal_coords()).int().to(self.device)
+    
+    def get_optimal_gt_action(self):
+        action = self.venv.get_optimal_gt_action()
+        return torch.tensor(action).int().to(self.device)

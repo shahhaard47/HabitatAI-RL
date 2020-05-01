@@ -10,6 +10,7 @@ ppoBaseline/habitat-api
 *.pth
 train.log
 Archive.zip
+# for tensorboard (from E2E ppo code)
 tb/
 video_dir
 habitat-api/

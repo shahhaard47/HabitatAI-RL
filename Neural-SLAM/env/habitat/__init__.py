@@ -12,7 +12,9 @@ from habitat import get_config as cfg_baseline
 
 
 def make_env_fn(args, config_env, config_baseline, rank):
-    print(config_env.DATASET)
+    print("-------------- condig_env ---------------")
+    print(config_env)
+    print("-----------------------------------------")
     dataset = PointNavDatasetV1(config_env.DATASET)
     print("Loading {}".format(config_env.SIMULATOR.SCENE))
     env = PointNavEnv(args=args, rank=rank, config_env=config_env, config_baseline=config_baseline, dataset=dataset)
@@ -28,9 +30,6 @@ def construct_envs(args):
     # TODO check params consistency here
     basic_config = cfg_env(config_paths=
                            [args.task_config])
-    basic_config.defrost()
-    basic_config.DATASET.SPLIT = args.split
-    basic_config.freeze()
 
     print("loading scenes ...")
     scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
@@ -59,8 +58,8 @@ def construct_envs(args):
         else:
             gpu_id = int((i - args.num_processes_on_first_gpu)
                          // args.num_processes_per_gpu) + args.sim_gpu_id
-        gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
-        print("***********GPU ID***********\n", gpu_id)
+#         gpu_id = min(torch.cuda.device_count() - 1, gpu_id)
+        gpu_id = 0
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
         config_env.freeze()
         env_configs.append(config_env)
