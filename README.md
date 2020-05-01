@@ -1,8 +1,13 @@
 # DL Final Project Submission
 Code for the Deep Learning project - habitat challenge PointNav CVPR 2020 
 
-Github Repo: https://github.com/akshay-krishnan/habitat-submission.git 
+## Team - CS 4803DL-7643A Spring 2020
+- Haard Shah
+- Akshay Krishnan
+- Mason Lilly
+- Prateek Vishal
 
+Github Repo: https://github.com/akshay-krishnan/habitat-submission.git 
 
 ## DEPENDENCY
 
