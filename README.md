@@ -34,6 +34,10 @@ We do this by first learning an accuracte pose estimator using classical shortes
 
 > NOTE: more information about options to pass can be found by running `python pose_estimation_optimal.py --help`
 
+Please download `model_best.slam` from [here](https://drive.google.com/file/d/15ufTrfDeF5l-xOlrjsB8BxUx81Q-q6cv/view?usp=sharing) to train or evaluate trained model with gibson dataset. 
+
+After downloading it, replace `<path/to/best>` in the following commands with location of the downloaded model weights.
+
 ### To train pose estimator
 Code for this can be found here: [Neural-SLAM/pose_estimation_optimal](Neural-SLAM/pose_estimation_optimal)
 Install Habitat Sim(branch stable) and Habitat API(branch habitat-challenge-2020) 
