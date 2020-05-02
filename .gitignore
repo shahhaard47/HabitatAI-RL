@@ -21,3 +21,5 @@ habitat-challenge
 *.slam
 .idea
 .vscode
+# outputs/
+*.png
