@@ -21,5 +21,4 @@ habitat-challenge
 *.slam
 .idea
 .vscode
-# outputs/
-*.png
+Neural-SLAM/outputs/
