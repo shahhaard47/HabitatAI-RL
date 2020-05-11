@@ -38,6 +38,7 @@ GET_OPTIMAL_GT_ACTION = "get_optimal_gt_action"
 GET_OPTIMAL_ACTION = "get_optimal_action"
 GET_NUMPY_VIS = "get_numpy_vis"
 RESET_NUMPY_VIS = "reset_numpy_vis"
+UPDATE_POSE_VIZ = "update_pose_viz"
 
 def _make_env_fn(
     config: Config, dataset: Optional[habitat.Dataset] = None, rank: int = 0
@@ -234,6 +235,8 @@ class VectorEnv:
                     connection_write_fn(action)
                 elif command == RESET_NUMPY_VIS:
                     env.reset_numpy_vis()
+                elif command == UPDATE_POSE_VIZ:
+                    env.update_pose_viz(data)
                     
                 else:
                     raise NotImplementedError
@@ -583,6 +586,12 @@ class VectorEnv:
         #     results.append(read_fn())
         # self._is_waiting = False
         # return results
+
+    def update_pose_viz(self, slam_poses):
+        self._assert_not_closed()
+        self._is_waiting = True
+        for e, write_fn in enumerate(self._connection_write_fns):
+            write_fn((UPDATE_POSE_VIZ, inputs[e]))
 
     def get_optimal_action(self, inputs):
         self._assert_not_closed()

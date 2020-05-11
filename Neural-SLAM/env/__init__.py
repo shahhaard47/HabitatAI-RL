@@ -42,6 +42,11 @@ class VecPyTorch():
         reward = torch.from_numpy(reward).float()
         return obs, reward, done, info
 
+    def update_pose_viz(self, slam_poses):
+        slam_poses = slam_poses.cpu().numpy()
+        self.venv.update_pose_viz(slam_poses)
+        return
+        
     def get_rewards(self, inputs):
         reward = self.venv.get_rewards(inputs)
         reward = torch.from_numpy(reward).float()
@@ -80,3 +85,4 @@ class VecPyTorch():
     def get_optimal_action(self):
         action = self.venv.get_optimal_action()
         return torch.tensor(action).int().to(self.device)
+

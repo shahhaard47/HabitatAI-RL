@@ -126,16 +126,13 @@ class PointNavEnv(habitat.RLEnv):
         # list of x, y, theta
         self.trajectory_states = []
 
-        # TODO what is randomize_env()? 
         if args.randomize_env_every > 0:
             if np.mod(self.episode_no, args.randomize_env_every) == 0:
                 self.randomize_env()
 
-        # get obs from env after reset
         # Get Ground Truth Map - explorable map for the given map size
-        # set explored area to 0
         self.explorable_map = None
-        full_map_size = args.map_size_cm//args.map_resolution       
+        full_map_size = args.map_size_cm//args.map_resolution
         while self.explorable_map is None:
             obs = super().reset()
             self.explorable_map = self._get_gt_map(full_map_size)
@@ -168,9 +165,7 @@ class PointNavEnv(habitat.RLEnv):
         goal_xy = self.goal_in_agent_frame()
         self.goal_rc = [int((self.curr_loc[1] + goal_xy[1])*100/args.map_resolution), 
                     int((self.curr_loc[0] + goal_xy[0])*100/args.map_resolution)]
-        # print("goal from dataset ", goal_xy)
-        # print("goal from the sim ", obs['pointgoal'])
-        # Convert pose to cm and degrees for mapper
+        # Convert pose to cm and radians for mapper
         mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
                           self.curr_loc_gt[1]*100.0,
                           np.deg2rad(self.curr_loc_gt[2]))
@@ -236,11 +231,7 @@ class PointNavEnv(habitat.RLEnv):
         self.last_loc_gt = np.copy(self.curr_loc_gt)
         self._previous_action = action
 
-        # get data from simulator
-        # try:
         obs, rew, done, info = super().step(action)
-        # except:
-            # return
 
         # Preprocess observations - same as in reset
         rgb = obs['rgb'].astype(np.uint8)
@@ -250,22 +241,12 @@ class PointNavEnv(habitat.RLEnv):
         state = rgb.transpose(2, 0, 1)
         depth = _preprocess_depth(obs['depth'])
  
-        # ground-truth pose and predicted pose
-        # gt pose change from sim
         dx_gt, dy_gt, do_gt = self.get_gt_pose_change()
         dx_base, dy_base, do_base = self.get_noiseless_map_dpose(self.curr_loc, action)
-
-        # print('---------')
-        # print("POINTGOAL, rew, done, ", obs['pointgoal'], rew, done)
-        # print("DPOSE: GT ", dx_gt, dy_gt, do_gt, " EXPECTED: ", dx_base, dy_base, do_base)
-        # print("before stepping POSE: GT ", self.curr_loc_gt, " EST: ", self.curr_loc)        
         self.curr_loc = pu.get_new_pose(self.curr_loc,
                                (dx_base, dy_base, do_base))
         self.curr_loc_gt = pu.get_new_pose(self.curr_loc_gt,
                                (dx_gt, dy_gt, do_gt))
-        # print("POSE: GT ", self.curr_loc_gt, " EST: ", self.curr_loc)
-        # print('---------')
-        # Convert pose to cm and degrees for mapper
         mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
                           self.curr_loc_gt[1]*100.0,
                           np.deg2rad(self.curr_loc_gt[2]))
@@ -311,7 +292,6 @@ class PointNavEnv(habitat.RLEnv):
         self.info['pose_err'] = [dx_gt - dx_base,
                                  dy_gt - dy_base,
                                  do_gt - do_base]
-
 
         if self.timestep%args.num_local_steps==0:
             area, ratio = self.get_global_reward()
@@ -392,7 +372,7 @@ class PointNavEnv(habitat.RLEnv):
 
     def get_sim_location(self):
         agent_state = super().habitat_env.sim.get_agent_state(0)
-        # print("sim location, agent state ", agent_state)
+        print("sim location, agent state ", agent_state)
         x = -agent_state.position[2]
         y = -agent_state.position[0]
         axis = quaternion.as_euler_angles(agent_state.rotation)[0]
@@ -460,6 +440,70 @@ class PointNavEnv(habitat.RLEnv):
         # print("curr pose ", curr_sim_pose)
         self.last_sim_location = curr_sim_pose
         return dx, dy, do
+
+
+    def update_pose_viz(slam_pose):
+        self.curr_loc = slam_pose
+
+        # estimated pose
+        last_start = [int(self.last_loc[1] * 100.0/args.map_resolution),
+                      int(self.last_loc[0] * 100.0/args.map_resolution)]
+        last_start = pu.threshold_poses(last_start, grid.shape)
+        start = [int(self.curr_loc[1] * 100.0/args.map_resolution),
+                 int(self.curr_loc[0] * 100.0/args.map_resolution)]
+        start = pu.threshold_poses(start, self.visited.shape)
+        self.visited[start[0]-2:start[0]+3, start[1]-2:start[1]+3] = 1
+        steps = 25
+        for i in range(steps):
+            x = int(last_start[0] + (start[0] - last_start[0]) * (i+1) / steps)
+            y = int(last_start[1] + (start[1] - last_start[1]) * (i+1) / steps)
+            self.visited_vis[x, y] = 1
+
+        # gt pose
+        last_start = [int(self.last_loc_gt[1] * 100.0/args.map_resolution),
+                      int(self.last_loc_gt[0] * 100.0/args.map_resolution)]
+        last_start = pu.threshold_poses(last_start, self.visited_gt.shape)
+        start_gt = [int(self.curr_loc_gt[1] * 100.0/args.map_resolution),
+                    int(self.curr_loc_gt[0] * 100.0/args.map_resolution)]
+        start_gt = pu.threshold_poses(start_gt, self.visited_gt.shape)
+        self.visited_gt[start_gt[0], start_gt[1]] = 1
+        steps = 25
+        for i in range(steps):
+            x = int(last_start[0] + (start_gt[0] - last_start[0]) * (i+1) / steps)
+            y = int(last_start[1] + (start_gt[1] - last_start[1]) * (i+1) / steps)
+            self.visited_gt[x, y] = 1
+
+        np_vis_img = None
+        if self.total_num_steps % args.print_frequency == 0:
+            if args.visualize or args.print_images:
+                dump_dir = "{}/dump/{}/".format(args.dump_location, args.exp_name)
+                ep_dir = '{}/episodes/{}/{}/'.format(dump_dir, self.rank+1, self.episode_no)
+                if not os.path.exists(ep_dir):
+                    os.makedirs(ep_dir)
+
+                visited = self.visited_gt
+                pose = (self.curr_loc_gt[0], self.curr_loc_gt[1], self.curr_loc_gt[2])
+                if args.vis_type == 1: # Visualize predicted map and pose
+                    visited = self.visited_vis
+                    pose = (self.curr_loc[0], self.curr_loc[1], self.curr_loc[2])
+
+                vis_grid = vu.get_colored_map(self.map,
+                                self.collison_map,
+                                visited,
+                                self.visited_gt,
+                                (self.goal_rc[0], self.goal_rc[1]),
+                                self.explored_map,
+                                self.explorable_map,
+                                self.map*self.explored_map)
+                vis_grid = np.flipud(vis_grid)
+                np_vis_img =  vu.visualize(self.figure, self.ax, self.obs, vis_grid[:,:,::-1],
+                            pose,
+                            (start_x_gt, start_y_gt, start_o_gt),
+                            dump_dir, self.rank, self.episode_no,
+                            self.timestep, args.visualize,
+                            args.print_images, args.vis_type)
+        if np_vis_img is not None: 
+            self.numpy_visualizations.append(np_vis_img)
 
 
     def get_short_term_goal(self, inputs):
