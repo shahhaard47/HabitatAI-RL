@@ -9,6 +9,8 @@ Code for the Deep Learning project - habitat challenge PointNav CVPR 2020
 
 Github Repo: https://github.com/akshay-krishnan/habitat-submission.git 
 
+View our project Report (pdf): [Project_Report___HabitatAI_PointNav-2.pdf](Project_Report___HabitatAI_PointNav-2.pdf)
+
 ## DEPENDENCY
 
 - [Habitat-Sim](https://github.com/facebookresearch/habitat-sim)
