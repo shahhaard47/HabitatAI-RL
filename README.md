@@ -3,7 +3,9 @@ Code for the Deep Learning project - habitat challenge PointNav CVPR 2020
 
 <video src="results/Pose estimator/SampleRuns/episodes/1/1/video.mp4" width="320" height="200" controls preload>Sample Run</video>
 
-![Sample Run](results/Pose estimator/SampleRuns/episodes/1/1/video.mp4)
+
+![Sample Run]("results/Pose estimator/SampleRun.png")
+
 
 ## Team - CS 4803DL-7643A Spring 2020
 - Haard Shah
