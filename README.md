@@ -1,10 +1,8 @@
 # DL Final Project Submission
 Code for the Deep Learning project - habitat challenge PointNav CVPR 2020 
 
-<video src="results/Pose estimator/SampleRuns/episodes/1/1/video.mp4" width="320" height="200" controls preload>Sample Run</video>
 
-
-![Sample Run]("results/Pose estimator/SampleRun.png")
+[![Sample run with custom pose estimator](https://img.youtube.com/vi/Bobo88GhcdM/hqdefault.jpg)](https://youtu.be/Bobo88GhcdM)
 
 
 ## Team - CS 4803DL-7643A Spring 2020
