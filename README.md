@@ -1,6 +1,10 @@
 # DL Final Project Submission
 Code for the Deep Learning project - habitat challenge PointNav CVPR 2020 
 
+<video src="results/Pose estimator/SampleRuns/episodes/1/1/video.mp4" width="320" height="200" controls preload>Sample Run</video>
+
+![Sample Run](results/Pose estimator/SampleRuns/episodes/1/1/video.mp4)
+
 ## Team - CS 4803DL-7643A Spring 2020
 - Haard Shah
 - Akshay Krishnan
@@ -41,7 +45,7 @@ Please download `model_best.slam` from [here](https://drive.google.com/file/d/15
 After downloading it, replace `<path/to/best>` in the following commands with location of the downloaded model weights.
 
 ### To train pose estimator
-Code for this can be found here: [Neural-SLAM/pose_estimation_optimal](Neural-SLAM/pose_estimation_optimal)
+Code for this can be found here: [Neural-SLAM/pose_estimation_optimal.py](Neural-SLAM/pose_estimation_optimal.py)
 Install Habitat Sim(branch stable) and Habitat API(branch habitat-challenge-2020) 
 ```
 cd Neural-SLAM
