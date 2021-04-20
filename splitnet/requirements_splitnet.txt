@@ -70,7 +70,7 @@ progressbar2==3.50.1
 prompt-toolkit==3.0.5
 protobuf==3.9.2
 ptyprocess==0.6.0
-py==1.8.1
+py==1.10.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pybullet==2.7.2
