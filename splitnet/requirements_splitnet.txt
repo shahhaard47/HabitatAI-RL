@@ -54,7 +54,7 @@ moviepy==1.0.2
 MulticoreTSNE==0.1
 networkx==2.4
 numba==0.48.0
-numpy==1.18.2
+numpy==1.22.0
 numpy-quaternion==2019.12.11.22.25.52
 oauthlib==3.1.0
 olefile==0.46
